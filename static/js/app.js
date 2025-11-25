@@ -1,6 +1,5 @@
 // State management
 let isPlaying = false;
-let shutdownTimer = null;
 let currentPlaylistId = null;
 let isShuffleOn = false;
 let devicePollingInterval = null;
@@ -85,7 +84,6 @@ const settingsModal = document.getElementById('settings-modal');
 const refreshAudioDevicesBtn = document.getElementById('btn-refresh-audio-devices');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeIconPath = document.getElementById('volume-icon-path');
-const progressContainer = document.getElementById('progress-container');
 const progressBar = document.getElementById('progress-bar');
 const progressFill = document.getElementById('progress-fill');
 const currentTimeEl = document.getElementById('current-time');
@@ -96,6 +94,77 @@ let trackDuration = 0;
 let trackProgress = 0;
 let lastProgressUpdate = Date.now();
 let progressInterpolationInterval = null;
+
+// Volume slider state
+let isVolumeAdjusting = false;
+let volumeDebounceTimer = null;
+
+// Long-press helper for buttons with hold-to-activate behavior
+function setupLongPress(button, duration, onComplete) {
+    let holdDuration = 0;
+    let holdInterval = null;
+
+    const start = (e) => {
+        if (e.type === 'touchstart') e.preventDefault();
+        holdDuration = 0;
+        button.classList.add('holding');
+        holdInterval = setInterval(() => {
+            holdDuration += 100;
+            if (holdDuration >= duration) {
+                clearInterval(holdInterval);
+                button.classList.remove('holding');
+                onComplete();
+            }
+        }, 100);
+    };
+
+    const cancel = (e) => {
+        if (e.type === 'touchend') e.preventDefault();
+        clearInterval(holdInterval);
+        button.classList.remove('holding');
+    };
+
+    button.addEventListener('mousedown', start);
+    button.addEventListener('touchstart', start);
+    button.addEventListener('mouseup', cancel);
+    button.addEventListener('mouseleave', cancel);
+    button.addEventListener('touchend', cancel);
+}
+
+// Render audio devices list helper
+function renderAudioDevices(container, data, errorMessage = 'Fout bij laden van audio apparaten') {
+    if (data.error) {
+        container.innerHTML = `<div class="empty-state">${errorMessage}</div>`;
+        return;
+    }
+
+    if (!data.devices || data.devices.length === 0) {
+        container.innerHTML = '<div class="empty-state">Geen audio apparaten gevonden</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    data.devices.forEach(device => {
+        const deviceDiv = createAudioDeviceElement(device);
+        container.appendChild(deviceDiv);
+    });
+}
+
+// Perform logout with cleanup
+function performLogout() {
+    // Stop all polling intervals
+    if (progressInterpolationInterval) {
+        clearInterval(progressInterpolationInterval);
+    }
+    stopDevicePolling();
+
+    // Clear all browser storage
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Hard redirect to prevent back-button issues
+    window.location.replace('/logout');
+}
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -123,132 +192,23 @@ function setupEventListeners() {
 
     // Volume slider
     volumeSlider.addEventListener('input', handleVolumeChange);
+    volumeSlider.addEventListener('mousedown', () => { isVolumeAdjusting = true; });
+    volumeSlider.addEventListener('touchstart', () => { isVolumeAdjusting = true; });
+    volumeSlider.addEventListener('mouseup', () => { isVolumeAdjusting = false; });
+    volumeSlider.addEventListener('touchend', () => { isVolumeAdjusting = false; });
+    volumeSlider.addEventListener('mouseleave', () => { isVolumeAdjusting = false; });
 
     // Progress bar seeking
     progressBar.addEventListener('click', handleProgressBarClick);
     progressBar.addEventListener('mousedown', startProgressDrag);
     progressBar.addEventListener('touchstart', startProgressDrag, { passive: false });
 
-    // Shutdown with long-press protection
-    let holdDuration = 0;
-    let holdInterval = null;
-
-    shutdownBtn.addEventListener('mousedown', () => {
-        holdDuration = 0;
-        shutdownBtn.classList.add('holding');
-        holdInterval = setInterval(() => {
-            holdDuration += 100;
-            if (holdDuration >= 3000) {
-                clearInterval(holdInterval);
-                showShutdownModal();
-                shutdownBtn.classList.remove('holding');
-            }
-        }, 100);
-    });
-
-    shutdownBtn.addEventListener('mouseup', () => {
-        clearInterval(holdInterval);
-        shutdownBtn.classList.remove('holding');
-    });
-
-    shutdownBtn.addEventListener('mouseleave', () => {
-        clearInterval(holdInterval);
-        shutdownBtn.classList.remove('holding');
-    });
-
-    // Touch events for mobile
-    shutdownBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        holdDuration = 0;
-        shutdownBtn.classList.add('holding');
-        holdInterval = setInterval(() => {
-            holdDuration += 100;
-            if (holdDuration >= 3000) {
-                clearInterval(holdInterval);
-                showShutdownModal();
-                shutdownBtn.classList.remove('holding');
-            }
-        }, 100);
-    });
-
-    shutdownBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        clearInterval(holdInterval);
-        shutdownBtn.classList.remove('holding');
-    });
+    // Long-press protection for shutdown and logout
+    setupLongPress(shutdownBtn, 3000, showShutdownModal);
+    setupLongPress(logoutBtn, 3000, performLogout);
 
     confirmShutdownBtn.addEventListener('click', confirmShutdown);
     cancelShutdownBtn.addEventListener('click', hideShutdownModal);
-
-    // Logout with long-press protection
-    let logoutHoldDuration = 0;
-    let logoutHoldInterval = null;
-
-    logoutBtn.addEventListener('mousedown', () => {
-        logoutHoldDuration = 0;
-        logoutBtn.classList.add('holding');
-        logoutHoldInterval = setInterval(() => {
-            logoutHoldDuration += 100;
-            if (logoutHoldDuration >= 3000) {
-                clearInterval(logoutHoldInterval);
-
-                // Stop all polling intervals before logout
-                if (progressInterpolationInterval) {
-                    clearInterval(progressInterpolationInterval);
-                }
-                stopDevicePolling();
-
-                // Clear all browser storage
-                localStorage.clear();
-                sessionStorage.clear();
-
-                // Hard redirect to prevent back-button issues
-                window.location.replace('/logout');
-            }
-        }, 100);
-    });
-
-    logoutBtn.addEventListener('mouseup', () => {
-        clearInterval(logoutHoldInterval);
-        logoutBtn.classList.remove('holding');
-    });
-
-    logoutBtn.addEventListener('mouseleave', () => {
-        clearInterval(logoutHoldInterval);
-        logoutBtn.classList.remove('holding');
-    });
-
-    // Touch events for mobile/touchscreen
-    logoutBtn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        logoutHoldDuration = 0;
-        logoutBtn.classList.add('holding');
-        logoutHoldInterval = setInterval(() => {
-            logoutHoldDuration += 100;
-            if (logoutHoldDuration >= 3000) {
-                clearInterval(logoutHoldInterval);
-
-                // Stop all polling intervals before logout
-                if (progressInterpolationInterval) {
-                    clearInterval(progressInterpolationInterval);
-                }
-                stopDevicePolling();
-
-                // Clear all browser storage
-                localStorage.clear();
-                sessionStorage.clear();
-
-                // Hard redirect to prevent back-button issues
-                window.location.replace('/logout');
-            }
-        }, 100);
-    });
-
-    logoutBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        clearInterval(logoutHoldInterval);
-        logoutBtn.classList.remove('holding');
-    });
 
     // Settings modal event listeners
     openSettingsBtn.addEventListener('click', showSettingsModal);
@@ -507,25 +467,29 @@ function updateShuffleButton() {
 }
 
 // Handle volume change
-async function handleVolumeChange() {
+function handleVolumeChange() {
     const volume = volumeSlider.value;
     updateVolumeIcon(volume);
 
-    try {
-        const response = await fetch('/api/volume', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ volume_percent: parseInt(volume) })
-        });
-        if (!response.ok) {
-            const data = await response.json();
-            showToast(data.error || 'Fout bij volume aanpassen', 'error');
+    // Debounce API calls to prevent too many requests
+    clearTimeout(volumeDebounceTimer);
+    volumeDebounceTimer = setTimeout(async () => {
+        try {
+            const response = await fetch('/api/volume', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ volume_percent: parseInt(volume) })
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                showToast(data.error || 'Fout bij volume aanpassen', 'error');
+            }
+        } catch (error) {
+            console.error('Error setting volume:', error);
         }
-    } catch (error) {
-        console.error('Error setting volume:', error);
-    }
+    }, 100);
 }
 
 // Update volume icon based on volume level
@@ -683,7 +647,7 @@ async function updateCurrentTrack() {
             updateShuffleButton();
         }
 
-        if (data.volume_percent !== undefined) {
+        if (data.volume_percent !== undefined && !isVolumeAdjusting) {
             volumeSlider.value = data.volume_percent;
             updateVolumeIcon(data.volume_percent);
         }
@@ -888,23 +852,8 @@ async function loadAudioDevices() {
         cachedAudioDevicesTimestamp &&
         (Date.now() - cachedAudioDevicesTimestamp) < CACHE_DURATION) {
 
-        const data = cachedAudioDevices;
-
-        // Render from cache immediately
-        if (data.error) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Fout bij laden van audio apparaten</div>';
-        } else if (data.devices.length === 0) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Geen audio apparaten gevonden</div>';
-        } else {
-            audioDevicesList.innerHTML = '';
-            data.devices.forEach(device => {
-                const deviceDiv = createAudioDeviceElement(device);
-                audioDevicesList.appendChild(deviceDiv);
-            });
-        }
-
-        // Refresh cache in background for next time
-        preloadAudioDevices();
+        renderAudioDevices(audioDevicesList, cachedAudioDevices);
+        preloadAudioDevices(); // Refresh cache in background
         return;
     }
 
@@ -917,21 +866,7 @@ async function loadAudioDevices() {
         cachedAudioDevices = data;
         cachedAudioDevicesTimestamp = Date.now();
 
-        if (data.error) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Fout bij laden van audio apparaten</div>';
-            return;
-        }
-
-        if (data.devices.length === 0) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Geen audio apparaten gevonden</div>';
-            return;
-        }
-
-        audioDevicesList.innerHTML = '';
-        data.devices.forEach(device => {
-            const deviceDiv = createAudioDeviceElement(device);
-            audioDevicesList.appendChild(deviceDiv);
-        });
+        renderAudioDevices(audioDevicesList, data);
     } catch (error) {
         console.error('Error loading audio devices:', error);
         audioDevicesList.innerHTML = '<div class="empty-state">Fout bij laden van audio apparaten</div>';
@@ -955,28 +890,12 @@ async function refreshAudioDevices() {
         });
         const data = await response.json();
 
-        if (data.error) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Fout bij verversen van audio apparaten</div>';
-            return;
-        }
-
         // Update cache with fresh data
         cachedAudioDevices = data;
         cachedAudioDevicesTimestamp = Date.now();
 
-        // Render devices
-        if (data.devices.length === 0) {
-            audioDevicesList.innerHTML = '<div class="empty-state">Geen audio apparaten gevonden</div>';
-            return;
-        }
-
-        audioDevicesList.innerHTML = '';
-        data.devices.forEach(device => {
-            const deviceDiv = createAudioDeviceElement(device);
-            audioDevicesList.appendChild(deviceDiv);
-        });
-
-        console.log(`Audio devices refreshed: ${data.devices.length} devices found`);
+        renderAudioDevices(audioDevicesList, data, 'Fout bij verversen van audio apparaten');
+        console.log(`Audio devices refreshed: ${data.devices?.length || 0} devices found`);
     } catch (error) {
         console.error('Error refreshing audio devices:', error);
         audioDevicesList.innerHTML = '<div class="empty-state">Fout bij verversen van audio apparaten</div>';
@@ -1074,7 +993,7 @@ async function selectAudioDevice(deviceId) {
         clickedDevice.classList.add('switching');
         const spinner = document.createElement('span');
         spinner.className = 'device-loading-spinner';
-        spinner.innerHTML = '⏳';
+        spinner.innerHTML = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>';
         clickedDevice.appendChild(spinner);
     }
 

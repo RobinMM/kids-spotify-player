@@ -1,10 +1,10 @@
 from flask import Flask, render_template, request, jsonify, redirect, session, make_response
+from functools import wraps
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import os
 import platform
 import subprocess
-import re
 import glob
 from dotenv import load_dotenv
 from threading import Thread, Lock
@@ -90,7 +90,7 @@ def get_spotify_client():
 
     return spotipy.Spotify(auth=token_info['access_token'])
 
-def is_device_allowed():
+def is_device_allowed(sp=None):
     """Check if current active device is in allowed list"""
     device_filter = os.getenv('SPOTIFY_DEVICE_NAME', '').strip()
     if not device_filter:
@@ -99,7 +99,8 @@ def is_device_allowed():
     # Support meerdere devices (comma-separated)
     allowed_devices = [d.strip().lower() for d in device_filter.split(',')]
 
-    sp = get_spotify_client()
+    if not sp:
+        sp = get_spotify_client()
     if not sp:
         return False
 
@@ -112,6 +113,29 @@ def is_device_allowed():
         return any(allowed in active_device_name for allowed in allowed_devices)
     except:
         return True  # Bij error niet blokkeren
+
+
+def spotify_playback_action(f):
+    """Decorator for playback endpoints that handles auth, device check, and error handling"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        sp = get_spotify_client()
+        if not sp:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        if not is_device_allowed(sp):
+            return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+
+        try:
+            return f(sp, *args, **kwargs)
+        except spotipy.exceptions.SpotifyException as e:
+            error_str = str(e).lower()
+            if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
+                return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
+            return jsonify({'error': str(e)}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    return decorated
 
 # Audio Device Helper Functions
 def get_audio_devices_linux():
@@ -462,9 +486,6 @@ def get_playlists():
             for p in all_playlists
         ]
 
-        # Store last results for debug logging
-        playlists = results
-
         # Debug logging (with error handling)
         try:
             print(f"\n=== PLAYLISTS DEBUG ===")
@@ -547,91 +568,37 @@ def get_current_track():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/play', methods=['POST'])
-def play():
+@spotify_playback_action
+def play(sp):
     """Resume playback"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
-    try:
-        sp.start_playback()
-        return jsonify({'success': True})
-    except Exception as e:
-        error_str = str(e).lower()
-        if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-            return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-        return jsonify({'error': str(e)}), 500
+    sp.start_playback()
+    return jsonify({'success': True})
 
 @app.route('/api/pause', methods=['POST'])
-def pause():
+@spotify_playback_action
+def pause(sp):
     """Pause playback"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
-    try:
-        sp.pause_playback()
-        return jsonify({'success': True})
-    except Exception as e:
-        error_str = str(e).lower()
-        if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-            return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-        return jsonify({'error': str(e)}), 500
+    sp.pause_playback()
+    return jsonify({'success': True})
 
 @app.route('/api/next', methods=['POST'])
-def next_track():
+@spotify_playback_action
+def next_track(sp):
     """Skip to next track"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
-    try:
-        sp.next_track()
-        return jsonify({'success': True})
-    except Exception as e:
-        error_str = str(e).lower()
-        if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-            return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-        return jsonify({'error': str(e)}), 500
+    sp.next_track()
+    return jsonify({'success': True})
 
 @app.route('/api/previous', methods=['POST'])
-def previous_track():
+@spotify_playback_action
+def previous_track(sp):
     """Skip to previous track"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
-    try:
-        sp.previous_track()
-        return jsonify({'success': True})
-    except Exception as e:
-        error_str = str(e).lower()
-        if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-            return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-        return jsonify({'error': str(e)}), 500
+    sp.previous_track()
+    return jsonify({'success': True})
 
 @app.route('/api/play-track', methods=['POST'])
-def play_track():
+@spotify_playback_action
+def play_track(sp):
     """Play a specific track"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
     data = request.get_json()
     track_uri = data.get('uri')
     playlist_id = data.get('playlist_id')
@@ -639,86 +606,52 @@ def play_track():
     if not track_uri:
         return jsonify({'error': 'No track URI provided'}), 400
 
-    try:
-        if playlist_id:
-            # Play from playlist context with offset to specific track
-            context_uri = f'spotify:playlist:{playlist_id}'
-            sp.start_playback(context_uri=context_uri, offset={'uri': track_uri})
-        else:
-            # Fallback: play only this track (backwards compatible)
-            sp.start_playback(uris=[track_uri])
-        return jsonify({'success': True})
-    except Exception as e:
-        error_str = str(e).lower()
-        if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-            return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-        return jsonify({'error': str(e)}), 500
+    if playlist_id:
+        # Play from playlist context with offset to specific track
+        context_uri = f'spotify:playlist:{playlist_id}'
+        sp.start_playback(context_uri=context_uri, offset={'uri': track_uri})
+    else:
+        # Fallback: play only this track (backwards compatible)
+        sp.start_playback(uris=[track_uri])
+    return jsonify({'success': True})
 
 @app.route('/api/shuffle', methods=['POST'])
-def toggle_shuffle():
+@spotify_playback_action
+def toggle_shuffle(sp):
     """Toggle shuffle mode"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
     data = request.get_json()
     shuffle_state = data.get('state', False)
-
-    try:
-        sp.shuffle(shuffle_state)
-        return jsonify({'success': True, 'shuffle': shuffle_state})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    sp.shuffle(shuffle_state)
+    return jsonify({'success': True, 'shuffle': shuffle_state})
 
 @app.route('/api/volume', methods=['POST'])
-def set_volume():
+@spotify_playback_action
+def set_volume(sp):
     """Set playback volume"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
     data = request.get_json()
     volume_percent = data.get('volume_percent')
 
     if volume_percent is None:
         return jsonify({'error': 'No volume_percent provided'}), 400
 
-    try:
-        # Ensure volume is between 0 and 100
-        volume_percent = max(0, min(100, int(volume_percent)))
-        sp.volume(volume_percent)
-        return jsonify({'success': True, 'volume_percent': volume_percent})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    # Ensure volume is between 0 and 100
+    volume_percent = max(0, min(100, int(volume_percent)))
+    sp.volume(volume_percent)
+    return jsonify({'success': True, 'volume_percent': volume_percent})
 
 @app.route('/api/seek', methods=['POST'])
-def seek_track():
+@spotify_playback_action
+def seek_track(sp):
     """Seek to position in current track"""
-    sp = get_spotify_client()
-    if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    if not is_device_allowed():
-        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
-
     data = request.get_json()
     position_ms = data.get('position_ms')
 
     if position_ms is None:
         return jsonify({'error': 'No position_ms provided'}), 400
 
-    try:
-        position_ms = max(0, int(position_ms))
-        sp.seek_track(position_ms)
-        return jsonify({'success': True, 'position_ms': position_ms})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    position_ms = max(0, int(position_ms))
+    sp.seek_track(position_ms)
+    return jsonify({'success': True, 'position_ms': position_ms})
 
 @app.route('/api/devices')
 def get_devices():
