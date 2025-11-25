@@ -8,6 +8,7 @@ let devicePollingInterval = null;
 let currentTheme = 'light';
 let primaryColor = '#667eea';
 let secondaryColor = '#764ba2';
+let accentColor = '#eacd66';
 
 // Audio device cache
 let cachedAudioDevices = null;
@@ -875,6 +876,11 @@ async function loadAudioDevices() {
 
 async function refreshAudioDevices() {
     const audioDevicesList = document.getElementById('audio-devices-list');
+    const refreshBtn = document.getElementById('btn-refresh-audio-devices');
+
+    // Disable button en start spinner
+    refreshBtn.disabled = true;
+    refreshBtn.classList.add('loading');
 
     try {
         // Show loading state
@@ -896,9 +902,15 @@ async function refreshAudioDevices() {
 
         renderAudioDevices(audioDevicesList, data, 'Fout bij verversen van audio apparaten');
         console.log(`Audio devices refreshed: ${data.devices?.length || 0} devices found`);
+        showToast('Audio apparaten vernieuwd', 'info');
     } catch (error) {
         console.error('Error refreshing audio devices:', error);
         audioDevicesList.innerHTML = '<div class="empty-state">Fout bij verversen van audio apparaten</div>';
+        showToast('Fout bij verversen', 'error');
+    } finally {
+        // Re-enable button en stop spinner
+        refreshBtn.disabled = false;
+        refreshBtn.classList.remove('loading');
     }
 }
 
@@ -1107,6 +1119,7 @@ function loadSavedTheme() {
     currentTheme = localStorage.getItem('theme') || 'light';
     primaryColor = localStorage.getItem('primaryColor') || '#667eea';
     secondaryColor = localStorage.getItem('secondaryColor') || '#764ba2';
+    accentColor = localStorage.getItem('accentColor') || '#eacd66';
 
     applyTheme();
 }
@@ -1115,6 +1128,7 @@ function saveTheme() {
     localStorage.setItem('theme', currentTheme);
     localStorage.setItem('primaryColor', primaryColor);
     localStorage.setItem('secondaryColor', secondaryColor);
+    localStorage.setItem('accentColor', accentColor);
 }
 
 function applyTheme() {
@@ -1124,6 +1138,7 @@ function applyTheme() {
     // Set CSS custom properties
     document.documentElement.style.setProperty('--primary-color', primaryColor);
     document.documentElement.style.setProperty('--secondary-color', secondaryColor);
+    document.documentElement.style.setProperty('--accent-color', accentColor);
     document.documentElement.style.setProperty('--bg-gradient-start', primaryColor);
     document.documentElement.style.setProperty('--bg-gradient-end', secondaryColor);
 
@@ -1146,10 +1161,11 @@ function updateThemeUI() {
     });
 }
 
-function applyPreset(theme, primary, secondary) {
+function applyPreset(theme, primary, secondary, accent) {
     currentTheme = theme;
     primaryColor = primary;
     secondaryColor = secondary;
+    accentColor = accent;
     applyTheme();
     saveTheme();
 }
@@ -1161,7 +1177,8 @@ function setupThemeListeners() {
             const theme = btn.getAttribute('data-theme');
             const primary = btn.getAttribute('data-primary');
             const secondary = btn.getAttribute('data-secondary');
-            applyPreset(theme, primary, secondary);
+            const accent = btn.getAttribute('data-accent');
+            applyPreset(theme, primary, secondary, accent);
         });
     });
 }

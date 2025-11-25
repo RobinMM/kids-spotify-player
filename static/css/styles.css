@@ -3,6 +3,7 @@
     /* Default Colors (Paars preset) */
     --primary-color: #667eea;
     --secondary-color: #764ba2;
+    --accent-color: #eacd66;
 
     /* Light Mode Colors */
     --bg-gradient-start: var(--primary-color);
@@ -366,7 +367,7 @@ body {
 }
 
 .control-btn.shuffle-on {
-    background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
+    background: var(--accent-color);
 }
 
 .control-btn.btn-shuffle {
@@ -964,6 +965,16 @@ svg.icon {
 
 .btn-refresh:active {
     transform: translateY(0);
+}
+
+.btn-refresh:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-refresh.loading .icon {
+    animation: spin 1s linear infinite;
 }
 
 .btn-logout {
