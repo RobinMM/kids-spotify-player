@@ -12,6 +12,7 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 - Spotify apparaat selectie met live status
 - Audio output device selectie (Windows/Linux)
 - Kindvriendelijke interface met grote knoppen
+- Apparaat beveiliging (alleen toegestane devices kunnen bedienen)
 
 ## Vereisten
 
@@ -47,7 +48,10 @@ SPOTIFY_CLIENT_ID=jouw_client_id
 SPOTIFY_CLIENT_SECRET=jouw_client_secret
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/callback
 FLASK_SECRET_KEY=random_string
-SPOTIFY_DEVICE_NAME=  # Optioneel: filter op apparaatnaam
+
+# Apparaat beveiliging (optioneel, comma-separated voor meerdere)
+# Leeg = alle apparaten toegestaan
+SPOTIFY_DEVICE_NAME=DESKTOP-16R31VC,RaspberryPi
 ```
 
 ### 4. Windows Audio Device Switching (Optioneel)
@@ -87,6 +91,7 @@ Klik op de instellingenknop (drie puntjes) voor:
 |----------|-----------|
 | "Credentials not found" | Controleer `.env` bestand |
 | "No active device" | Open Spotify app en start muziek |
+| "Bediening niet toegestaan" | Voeg device toe aan `SPOTIFY_DEVICE_NAME` in `.env` |
 | Playback werkt niet | Spotify Premium vereist |
 | Audio switch werkt niet (Windows) | Installeer AudioDeviceCmdlets module |
 

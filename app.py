@@ -90,6 +90,29 @@ def get_spotify_client():
 
     return spotipy.Spotify(auth=token_info['access_token'])
 
+def is_device_allowed():
+    """Check if current active device is in allowed list"""
+    device_filter = os.getenv('SPOTIFY_DEVICE_NAME', '').strip()
+    if not device_filter:
+        return True  # Geen filter = alles toegestaan
+
+    # Support meerdere devices (comma-separated)
+    allowed_devices = [d.strip().lower() for d in device_filter.split(',')]
+
+    sp = get_spotify_client()
+    if not sp:
+        return False
+
+    try:
+        playback = sp.current_playback()
+        if not playback or not playback.get('device'):
+            return True  # Geen actief device = geen blokkade
+
+        active_device_name = playback['device']['name'].lower()
+        return any(allowed in active_device_name for allowed in allowed_devices)
+    except:
+        return True  # Bij error niet blokkeren
+
 # Audio Device Helper Functions
 def get_audio_devices_linux():
     """Get audio devices on Linux using pactl"""
@@ -530,6 +553,9 @@ def play():
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
 
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+
     try:
         sp.start_playback()
         return jsonify({'success': True})
@@ -545,6 +571,9 @@ def pause():
     sp = get_spotify_client()
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
+
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
 
     try:
         sp.pause_playback()
@@ -562,6 +591,9 @@ def next_track():
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
 
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+
     try:
         sp.next_track()
         return jsonify({'success': True})
@@ -578,6 +610,9 @@ def previous_track():
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
 
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+
     try:
         sp.previous_track()
         return jsonify({'success': True})
@@ -593,6 +628,9 @@ def play_track():
     sp = get_spotify_client()
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
+
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
 
     data = request.get_json()
     track_uri = data.get('uri')
@@ -623,6 +661,9 @@ def toggle_shuffle():
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
 
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+
     data = request.get_json()
     shuffle_state = data.get('state', False)
 
@@ -638,6 +679,9 @@ def set_volume():
     sp = get_spotify_client()
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
+
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
 
     data = request.get_json()
     volume_percent = data.get('volume_percent')
@@ -659,6 +703,9 @@ def seek_track():
     sp = get_spotify_client()
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
+
+    if not is_device_allowed():
+        return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
 
     data = request.get_json()
     position_ms = data.get('position_ms')

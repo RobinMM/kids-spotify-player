@@ -512,13 +512,17 @@ async function handleVolumeChange() {
     updateVolumeIcon(volume);
 
     try {
-        await fetch('/api/volume', {
+        const response = await fetch('/api/volume', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ volume_percent: parseInt(volume) })
         });
+        if (!response.ok) {
+            const data = await response.json();
+            showToast(data.error || 'Fout bij volume aanpassen', 'error');
+        }
     } catch (error) {
         console.error('Error setting volume:', error);
     }
@@ -640,13 +644,19 @@ function startProgressDrag(e) {
 // Seek to position
 async function seekToPosition(position_ms) {
     try {
-        await fetch('/api/seek', {
+        const response = await fetch('/api/seek', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ position_ms: position_ms })
         });
+
+        if (!response.ok) {
+            const data = await response.json();
+            showToast(data.error || 'Fout bij positie aanpassen', 'error');
+            return;
+        }
 
         // Update local state
         trackProgress = position_ms;
