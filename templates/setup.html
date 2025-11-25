@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - Kids Spotify Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .step h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        .step h2 .number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .step ol, .step ul {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .step li {
+            margin-bottom: 8px;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #856404;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .warning strong {
+            color: #856404;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <h1>🎵 Welkom bij Kids Spotify Player</h1>
+        <p class="subtitle">Je moet eerst je Spotify credentials instellen voordat je kunt beginnen.</p>
+
+        <div class="step">
+            <h2><span class="number">1</span> Spotify Developer Account</h2>
+            <ol>
+                <li>Ga naar <a href="https://developer.spotify.com/dashboard" target="_blank">Spotify Developer Dashboard</a></li>
+                <li>Log in met je Spotify account</li>
+                <li>Klik op <strong>"Create app"</strong> (of "Create an App")</li>
+                <li>Vul in:
+                    <ul>
+                        <li><strong>App name:</strong> Kids Spotify Player (of een andere naam)</li>
+                        <li><strong>App description:</strong> Kids-friendly music player</li>
+                        <li><strong>Redirect URI:</strong> <span class="highlight">http://localhost:5000/callback</span></li>
+                    </ul>
+                </li>
+                <li>Vink aan: <strong>Web API</strong></li>
+                <li>Accepteer de terms en klik <strong>"Save"</strong></li>
+            </ol>
+
+            <div class="warning">
+                <strong>⚠️ Belangrijk over Redirect URI:</strong><br>
+                Spotify accepteert <code>http://localhost</code> voor lokale ontwikkeling.
+                Je hoeft GEEN HTTPS te gebruiken voor localhost!<br>
+                Zorg dat je exact dit invult: <span class="highlight">http://localhost:5000/callback</span>
+            </div>
+        </div>
+
+        <div class="step">
+            <h2><span class="number">2</span> Client ID en Secret Ophalen</h2>
+            <ol>
+                <li>Na het aanmaken van je app, klik op de app naam in het dashboard</li>
+                <li>Klik op <strong>"Settings"</strong></li>
+                <li>Kopieer je <strong>Client ID</strong></li>
+                <li>Klik op <strong>"View client secret"</strong> en kopieer het</li>
+                <li>Bewaar deze veilig - je hebt ze zo nodig!</li>
+            </ol>
+        </div>
+
+        <div class="step">
+            <h2><span class="number">3</span> .env Bestand Aanmaken</h2>
+            <p>Maak een bestand genaamd <span class="highlight">.env</span> in de hoofdmap van het project:</p>
+            <div class="code-block">SPOTIFY_CLIENT_ID=jouw_client_id_hier
+SPOTIFY_CLIENT_SECRET=jouw_client_secret_hier
+SPOTIFY_REDIRECT_URI=http://localhost:5000/callback
+FLASK_SECRET_KEY=een_random_string_hier</div>
+            <p>Vervang de waarden met je eigen credentials van stap 2.</p>
+            <p>Voor <span class="highlight">FLASK_SECRET_KEY</span> gebruik een willekeurige string (bijv. een UUID of random tekst).</p>
+        </div>
+
+        <div class="step">
+            <h2><span class="number">4</span> Server Herstarten</h2>
+            <ol>
+                <li>Stop de Flask server (Ctrl+C in de terminal)</li>
+                <li>Start de server opnieuw: <span class="highlight">python app.py</span></li>
+                <li>Ververs deze pagina</li>
+            </ol>
+        </div>
+
+        <div class="success">
+            <strong>✅ Klaar?</strong><br>
+            Als je de .env file hebt aangemaakt met de juiste credentials, herstart dan de server en ververs deze pagina.
+            <br><br>
+            <button class="btn" onclick="location.reload()">Pagina Verversen</button>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e9ecef;">
+            <h3 style="color: #667eea; margin-bottom: 10px;">Hulp nodig?</h3>
+            <p>Zie <strong>README.md</strong> voor gedetailleerde instructies en troubleshooting.</p>
+        </div>
+    </div>
+</body>
+</html>

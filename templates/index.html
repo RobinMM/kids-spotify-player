@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kids Spotify Player</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎵</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Playlists -->
+        <div class="panel panel-left">
+            <h2 class="panel-title">Playlists</h2>
+            <div id="playlists-container" class="scrollable">
+                <div class="loading">Playlists laden...</div>
+            </div>
+        </div>
+
+        <!-- Middle Panel: Tracks -->
+        <div class="panel panel-middle">
+            <h2 class="panel-title">Nummers</h2>
+            <div class="scrollable">
+                <div id="tracks-container">
+                    <div class="empty-state">Selecteer een playlist</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Now Playing & Controls -->
+        <div class="panel panel-right">
+            <h2 class="panel-title">Nu aan het spelen</h2>
+
+            <!-- Album Art & Track Info -->
+            <div id="now-playing" class="now-playing">
+                <div class="album-art-container">
+                    <img id="album-art" src="" alt="Album Art" class="album-art hidden">
+                    <div id="no-track" class="no-track">Geen muziek</div>
+                </div>
+                <div id="track-info" class="track-info">
+                    <div class="track-name" id="track-name">-</div>
+                    <div class="track-artist" id="track-artist">-</div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div id="progress-container" class="progress-container">
+                    <div class="progress-bar-wrapper">
+                        <div id="progress-bar" class="progress-bar">
+                            <div id="progress-fill" class="progress-fill"></div>
+                        </div>
+                    </div>
+                    <div class="progress-time">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Playback Controls -->
+            <div class="controls-section">
+                <div class="playback-controls">
+                    <button id="btn-previous" class="control-btn btn-previous" title="Vorige">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+                    <button id="btn-play-pause" class="control-btn btn-play-pause btn-large" title="Afspelen/Pauzeren">
+                        <svg class="icon" id="play-pause-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                    <button id="btn-next" class="control-btn btn-next" title="Volgende">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+                    <button id="btn-shuffle" class="control-btn btn-shuffle" title="Shuffle">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Volume Control -->
+                <div class="volume-control">
+                    <svg class="volume-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path id="volume-icon-path" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                    <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="50" title="Volume">
+                </div>
+            </div>
+
+            <!-- Settings Button -->
+            <div class="settings-button-container">
+                <button id="btn-open-settings" class="btn-open-settings" title="Instellingen">
+                    <svg class="icon" viewBox="0 0 24 24">
+                        <defs>
+                            <linearGradient id="dots-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:var(--primary-color)"/>
+                                <stop offset="100%" style="stop-color:var(--secondary-color)"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="4" cy="12" r="2.5" fill="url(#dots-gradient)"/>
+                        <circle cx="12" cy="12" r="2.5" fill="url(#dots-gradient)"/>
+                        <circle cx="20" cy="12" r="2.5" fill="url(#dots-gradient)"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content modal-settings">
+            <!-- Tab Navigation -->
+            <div class="tab-navigation">
+                <button class="tab-btn active" data-tab="theme">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                    </svg>
+                    <span>Thema</span>
+                </button>
+                <button class="tab-btn" data-tab="devices">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+                    </svg>
+                    <span>Apparaten</span>
+                </button>
+                <button class="tab-btn" data-tab="other">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
+                    </svg>
+                    <span>Overig</span>
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content-wrapper">
+                <!-- Tab 1: Theme (16 presets) -->
+                <div id="tab-theme" class="tab-panel active">
+                    <div class="theme-presets-grid">
+                        <!-- Light mode presets (8x) -->
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#667eea" data-secondary="#764ba2">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #667eea, #764ba2)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#4facfe" data-secondary="#00f2fe">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #4facfe, #00f2fe)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#f093fb" data-secondary="#f5576c">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #f093fb, #f5576c)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#11998e" data-secondary="#38ef7d">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #11998e, #38ef7d)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#fa709a" data-secondary="#fee140">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #fa709a, #fee140)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#f7971e" data-secondary="#ffd200">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #f7971e, #ffd200)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#ee0979" data-secondary="#ff6a00">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #ee0979, #ff6a00)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="light" data-primary="#8e2de2" data-secondary="#4a00e0">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #8e2de2, #4a00e0)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                        </button>
+                        <!-- Dark mode presets (8x) -->
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#667eea" data-secondary="#764ba2">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #667eea, #764ba2)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#00d2ff" data-secondary="#3a7bd5">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#f953c6" data-secondary="#b91d73">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #f953c6, #b91d73)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#00c9ff" data-secondary="#92fe9d">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #00c9ff, #92fe9d)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#f12711" data-secondary="#f5af19">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #f12711, #f5af19)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#2193b0" data-secondary="#6dd5ed">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #2193b0, #6dd5ed)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#c471f5" data-secondary="#fa71cd">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #c471f5, #fa71cd)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                        <button class="theme-preset-btn" data-theme="dark" data-primary="#11998e" data-secondary="#38ef7d">
+                            <span class="preset-gradient" style="background: linear-gradient(135deg, #11998e, #38ef7d)"></span>
+                            <svg class="preset-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Devices (Audio + Spotify combined) -->
+                <div id="tab-devices" class="tab-panel">
+                    <div class="audio-device-selection">
+                        <label class="toggle-label">Computer geluid:</label>
+                        <div id="audio-devices-list" class="devices-list">
+                            <div class="loading">Apparaten laden...</div>
+                        </div>
+                    </div>
+                    <div class="device-selection">
+                        <label class="toggle-label">Spotify afspelen op:</label>
+                        <div id="devices-list" class="devices-list">
+                            <div class="loading">Apparaten laden...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Other (Shutdown) -->
+                <div id="tab-other" class="tab-panel">
+                    <div class="other-buttons-list">
+                        <button id="btn-refresh-playlists" class="btn-refresh">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            <span>Playlists Vernieuwen</span>
+                        </button>
+                        <button id="btn-refresh-audio-devices" class="btn-refresh">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            <span>Audio Apparaten Vernieuwen</span>
+                        </button>
+                        <hr class="other-divider">
+                        <button id="btn-logout" class="btn-logout">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                            </svg>
+                            <span>Uitloggen</span>
+                        </button>
+                        <button id="btn-shutdown" class="btn-shutdown">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
+                            </svg>
+                            <span>Uitschakelen</span>
+                        </button>
+                        <div class="other-hint">Houd 3 seconden ingedrukt</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shutdown Confirmation Modal -->
+    <div id="shutdown-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Weet je het zeker?</h2>
+            <p>Wil je de muziekspeler uitschakelen?</p>
+            <div class="modal-buttons">
+                <button id="btn-confirm-shutdown" class="btn-modal btn-danger">Ja, uitschakelen</button>
+                <button id="btn-cancel-shutdown" class="btn-modal btn-cancel">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

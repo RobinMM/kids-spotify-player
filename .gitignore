@@ -1,0 +1,33 @@
+# Environment variables
+.env
+
+# Markdown (except README)
+*.md
+!README.md
+
+# Claude local settings
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Spotify cache
+.cache
+.cache-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
