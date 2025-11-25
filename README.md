@@ -26,7 +26,7 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 1. Ga naar [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Maak een nieuwe app aan
 3. Noteer je **Client ID** en **Client Secret**
-4. Voeg `http://localhost:5000/callback` toe aan Redirect URIs
+4. Voeg `http://127.0.0.1:5000/callback` toe aan Redirect URIs
 
 ### 2. Installatie
 
@@ -45,7 +45,7 @@ Vul `.env` in met je credentials:
 ```env
 SPOTIFY_CLIENT_ID=jouw_client_id
 SPOTIFY_CLIENT_SECRET=jouw_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:5000/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/callback
 FLASK_SECRET_KEY=random_string
 SPOTIFY_DEVICE_NAME=  # Optioneel: filter op apparaatnaam
 ```
