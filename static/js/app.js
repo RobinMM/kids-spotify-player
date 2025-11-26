@@ -2,8 +2,11 @@
 let isPlaying = false;
 let currentPlaylistId = null;
 let currentArtistId = null;
+let currentAlbumId = null;
 let currentViewMode = 'playlists'; // 'playlists' or 'artists'
+let currentArtistSubView = 'tracks'; // 'tracks' or 'albums' (only used in artists view)
 let isShuffleOn = false;
+let currentTrackId = null;
 let devicePollingInterval = null;
 
 // Theme state
@@ -22,7 +25,9 @@ const CACHE_KEYS = {
     PLAYLISTS: 'spotify-playlists-cache',
     TRACKS_PREFIX: 'spotify-tracks-',
     ARTISTS: 'spotify-artists-cache',
-    ARTIST_TRACKS_PREFIX: 'spotify-artist-tracks-'
+    ARTIST_TRACKS_PREFIX: 'spotify-artist-tracks-',
+    ARTIST_ALBUMS_PREFIX: 'spotify-artist-albums-',
+    ALBUM_TRACKS_PREFIX: 'spotify-album-tracks-'
 };
 const PLAYLIST_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -65,6 +70,220 @@ function clearArtistCache() {
     Object.keys(localStorage)
         .filter(k => k.startsWith(CACHE_KEYS.ARTIST_TRACKS_PREFIX))
         .forEach(k => localStorage.removeItem(k));
+    // Also clear album cache for artists
+    Object.keys(localStorage)
+        .filter(k => k.startsWith(CACHE_KEYS.ARTIST_ALBUMS_PREFIX) || k.startsWith(CACHE_KEYS.ALBUM_TRACKS_PREFIX))
+        .forEach(k => localStorage.removeItem(k));
+}
+
+// URL State Persistence
+function updateURL() {
+    const params = new URLSearchParams();
+    params.set('view', currentViewMode);
+
+    if (currentViewMode === 'playlists' && currentPlaylistId) {
+        params.set('playlist', currentPlaylistId);
+    } else if (currentViewMode === 'artists') {
+        if (currentArtistId) params.set('artist', currentArtistId);
+        if (currentAlbumId) {
+            params.set('album', currentAlbumId);
+        } else if (currentArtistSubView === 'albums') {
+            params.set('subview', 'albums');
+        }
+    }
+
+    const newURL = params.toString() ? '?' + params.toString() : window.location.pathname;
+    history.replaceState(null, '', newURL);
+}
+
+async function restoreFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const playlistId = params.get('playlist');
+    const artistId = params.get('artist');
+    const albumId = params.get('album');
+    const subview = params.get('subview');
+
+    // No URL params - use defaults
+    if (!view) {
+        loadPlaylists();
+        return;
+    }
+
+    if (view === 'playlists') {
+        currentViewMode = 'playlists';
+        await loadPlaylists();
+
+        if (playlistId) {
+            currentPlaylistId = playlistId;
+            await loadTracksById(playlistId);
+            // Highlight the playlist item after content loads
+            highlightPlaylistItem(playlistId);
+        }
+    } else if (view === 'artists') {
+        currentViewMode = 'artists';
+
+        // Update UI for artists mode
+        document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-view') === 'artists');
+        });
+
+        const artistSubToggle = document.getElementById('artist-sub-toggle');
+        if (artistSubToggle) artistSubToggle.style.display = 'grid';
+
+        await loadArtists();
+
+        if (artistId) {
+            currentArtistId = artistId;
+            // Highlight the artist item
+            highlightArtistItem(artistId);
+
+            if (albumId) {
+                // Load album tracks
+                currentAlbumId = albumId;
+                await loadAlbumTracksById(albumId);
+            } else if (subview === 'albums') {
+                currentArtistSubView = 'albums';
+                document.querySelectorAll('.sub-toggle-btn').forEach(btn => {
+                    btn.classList.toggle('active', btn.getAttribute('data-subview') === 'albums');
+                });
+                const tracksPanelTitle = document.getElementById('tracks-panel-title');
+                if (tracksPanelTitle) {
+                    tracksPanelTitle.style.display = 'block';
+                    tracksPanelTitle.textContent = 'Albums';
+                }
+                await loadArtistAlbums(artistId);
+            } else {
+                // Default: load top tracks
+                await loadArtistTracksById(artistId);
+            }
+        }
+    }
+}
+
+// Helper to highlight playlist item by ID
+function highlightPlaylistItem(playlistId) {
+    // Get cached playlists to find the index
+    const cached = getCache(CACHE_KEYS.PLAYLISTS);
+    if (!cached) return;
+
+    const index = cached.findIndex(p => p.id === playlistId);
+    if (index === -1) return;
+
+    const playlistItems = document.querySelectorAll('.playlist-item');
+    playlistItems.forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
+    });
+}
+
+// Helper to highlight artist item by ID
+function highlightArtistItem(artistId) {
+    // Get cached artists to find the index
+    const cached = getCache(CACHE_KEYS.ARTISTS);
+    if (!cached) return;
+
+    const index = cached.findIndex(a => a.id === artistId);
+    if (index === -1) return;
+
+    const artistItems = document.querySelectorAll('.artist-item');
+    artistItems.forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
+    });
+}
+
+// Helper to load tracks by ID (without button reference)
+async function loadTracksById(playlistId) {
+    currentPlaylistId = playlistId;
+    currentArtistId = null;
+
+    const cacheKey = CACHE_KEYS.TRACKS_PREFIX + playlistId;
+    const cached = getCache(cacheKey);
+    if (cached) {
+        renderTracks(cached);
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Nummers laden...</div>';
+
+    try {
+        const response = await fetch(`/api/playlist/${playlistId}`);
+        const tracks = await response.json();
+        setCache(cacheKey, tracks);
+        renderTracks(tracks);
+    } catch (error) {
+        console.error('Error loading tracks:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+    }
+}
+
+// Helper to load artist tracks by ID (without button reference)
+async function loadArtistTracksById(artistId) {
+    currentArtistId = artistId;
+    currentPlaylistId = null;
+    currentAlbumId = null;
+    currentArtistSubView = 'tracks';
+
+    resetArtistSubToggle();
+
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) {
+        tracksPanelTitle.style.display = 'block';
+        tracksPanelTitle.textContent = 'Top Nummers';
+    }
+
+    const cacheKey = CACHE_KEYS.ARTIST_TRACKS_PREFIX + artistId;
+    const cached = getCache(cacheKey);
+    if (cached) {
+        renderTracks(cached);
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Top nummers laden...</div>';
+
+    try {
+        const response = await fetch(`/api/artist/${artistId}/top-tracks`);
+        const tracks = await response.json();
+        setCache(cacheKey, tracks);
+        renderTracks(tracks);
+    } catch (error) {
+        console.error('Error loading artist tracks:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+    }
+}
+
+// Helper to load album tracks by ID (without album name)
+async function loadAlbumTracksById(albumId) {
+    currentAlbumId = albumId;
+
+    // Hide panel title (album header shows title now)
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) tracksPanelTitle.style.display = 'none';
+
+    // Show back button, hide sub-toggle
+    const albumBackBtn = document.getElementById('album-back-btn');
+    if (albumBackBtn) albumBackBtn.style.display = 'flex';
+    const artistSubToggle = document.getElementById('artist-sub-toggle');
+    if (artistSubToggle) artistSubToggle.style.display = 'none';
+
+    const cacheKey = CACHE_KEYS.ALBUM_TRACKS_PREFIX + albumId;
+    const cached = getCache(cacheKey);
+
+    if (cached) {
+        renderAlbumTracks(cached);
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Nummers laden...</div>';
+
+    try {
+        const response = await fetch(`/api/album/${albumId}/tracks`);
+        const tracks = await response.json();
+        setCache(cacheKey, tracks);
+        renderAlbumTracks(tracks);
+    } catch (error) {
+        console.error('Error loading album tracks:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+    }
 }
 
 // Audio device switching state
@@ -100,6 +319,7 @@ const progressBar = document.getElementById('progress-bar');
 const progressFill = document.getElementById('progress-fill');
 const currentTimeEl = document.getElementById('current-time');
 const totalTimeEl = document.getElementById('total-time');
+const albumBackBtn = document.getElementById('album-back-btn');
 
 // Progress tracking state
 let trackDuration = 0;
@@ -181,7 +401,7 @@ function performLogout() {
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     loadSavedTheme();
-    loadPlaylists();
+    restoreFromURL(); // Restore state from URL or load defaults
     preloadAudioDevices(); // Preload audio devices in background
     startCurrentTrackPolling();
     startProgressInterpolation();
@@ -247,6 +467,19 @@ function setupEventListeners() {
             switchViewMode(view);
         });
     });
+
+    // Artist sub-toggle (Top Nummers / Albums) event listeners
+    document.querySelectorAll('.sub-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const subview = btn.getAttribute('data-subview');
+            switchArtistSubView(subview);
+        });
+    });
+
+    // Album back button event listener
+    if (albumBackBtn) {
+        albumBackBtn.addEventListener('click', goBackToAlbums);
+    }
 }
 
 // Load playlists
@@ -324,7 +557,20 @@ function switchViewMode(mode) {
     // Update middle panel title
     const tracksPanelTitle = document.getElementById('tracks-panel-title');
     if (tracksPanelTitle) {
+        tracksPanelTitle.style.display = 'block';
         tracksPanelTitle.textContent = mode === 'playlists' ? 'Nummers' : 'Top Nummers';
+    }
+
+    // Show/hide artist sub-toggle
+    const artistSubToggle = document.getElementById('artist-sub-toggle');
+    if (artistSubToggle) {
+        artistSubToggle.style.display = mode === 'artists' ? 'flex' : 'none';
+    }
+
+    // Reset artist sub-view to tracks when switching modes
+    if (mode === 'playlists') {
+        currentArtistSubView = 'tracks';
+        resetArtistSubToggle();
     }
 
     // Animate content switch
@@ -338,14 +584,52 @@ function switchViewMode(mode) {
         // Load appropriate content
         if (mode === 'playlists') {
             currentArtistId = null;
+            currentAlbumId = null;
             loadPlaylists();
         } else {
             currentPlaylistId = null;
+            currentAlbumId = null;
             loadArtists();
         }
 
         playlistsContainer.classList.remove('switching');
+        updateURL();
     }, 150);
+}
+
+// Reset artist sub-toggle to default state (tracks)
+function resetArtistSubToggle() {
+    document.querySelectorAll('.sub-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-subview') === 'tracks');
+    });
+}
+
+// Switch between top tracks and albums in artist view
+function switchArtistSubView(subview) {
+    if (subview === currentArtistSubView) return;
+    if (!currentArtistId) return; // No artist selected
+
+    currentArtistSubView = subview;
+    currentAlbumId = null; // Reset album selection
+
+    // Update sub-toggle buttons
+    document.querySelectorAll('.sub-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-subview') === subview);
+    });
+
+    // Update panel title
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) {
+        tracksPanelTitle.style.display = 'block';
+        tracksPanelTitle.textContent = subview === 'tracks' ? 'Top Nummers' : 'Albums';
+    }
+
+    // Load appropriate content
+    if (subview === 'tracks') {
+        loadArtistTracks(currentArtistId, document.querySelector('.artist-item.active'));
+    } else {
+        loadArtistAlbums(currentArtistId);
+    }
 }
 
 // Load artists
@@ -416,12 +700,24 @@ async function loadArtistTracks(artistId, artistBtn) {
     // Store current artist ID (no playlist context for artist tracks)
     currentArtistId = artistId;
     currentPlaylistId = null; // Clear playlist context
+    currentAlbumId = null; // Clear album context
 
     // Update active state
     document.querySelectorAll('.artist-item').forEach(btn => {
         btn.classList.remove('active');
     });
-    artistBtn.classList.add('active');
+    if (artistBtn) artistBtn.classList.add('active');
+
+    // Reset sub-toggle to tracks when selecting a new artist
+    currentArtistSubView = 'tracks';
+    resetArtistSubToggle();
+
+    // Update panel title
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) {
+        tracksPanelTitle.style.display = 'block';
+        tracksPanelTitle.textContent = 'Top Nummers';
+    }
 
     const cacheKey = CACHE_KEYS.ARTIST_TRACKS_PREFIX + artistId;
 
@@ -429,6 +725,7 @@ async function loadArtistTracks(artistId, artistBtn) {
     const cached = getCache(cacheKey);
     if (cached) {
         renderTracks(cached);
+        updateURL();
         return;
     }
 
@@ -441,10 +738,258 @@ async function loadArtistTracks(artistId, artistBtn) {
         // Cache the result
         setCache(cacheKey, tracks);
         renderTracks(tracks);
+        updateURL();
     } catch (error) {
         console.error('Error loading artist tracks:', error);
         tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
     }
+}
+
+// Load albums from artist
+async function loadArtistAlbums(artistId) {
+    const cacheKey = CACHE_KEYS.ARTIST_ALBUMS_PREFIX + artistId;
+
+    // Check cache first
+    const cached = getCache(cacheKey);
+    if (cached) {
+        renderAlbums(cached);
+        updateURL();
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Albums laden...</div>';
+
+    try {
+        const response = await fetch(`/api/artist/${artistId}/albums`);
+        const albums = await response.json();
+
+        // Cache the result
+        setCache(cacheKey, albums);
+        renderAlbums(albums);
+        updateURL();
+    } catch (error) {
+        console.error('Error loading artist albums:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van albums</div>';
+    }
+}
+
+// Render albums to DOM
+function renderAlbums(albums) {
+    tracksContainer.innerHTML = '';
+
+    if (albums.length === 0) {
+        tracksContainer.innerHTML = '<div class="empty-state">Geen albums gevonden</div>';
+        return;
+    }
+
+    albums.forEach(album => {
+        const albumDiv = document.createElement('div');
+        albumDiv.className = 'album-item';
+
+        // Album image
+        const img = document.createElement('img');
+        img.src = album.image || '/static/img/placeholder.svg';
+        img.alt = album.name;
+        img.className = 'album-image';
+        albumDiv.appendChild(img);
+
+        // Album info
+        const textDiv = document.createElement('div');
+        textDiv.className = 'album-info-text';
+
+        // Extract year from release_date (can be YYYY, YYYY-MM, or YYYY-MM-DD)
+        const year = album.release_date ? album.release_date.split('-')[0] : '';
+
+        textDiv.innerHTML = `
+            <div class="album-name">${escapeHtml(album.name)}</div>
+            <div class="album-year">${year}</div>
+        `;
+        albumDiv.appendChild(textDiv);
+
+        albumDiv.onclick = () => loadAlbumTracks(album.id, album.name);
+        tracksContainer.appendChild(albumDiv);
+    });
+}
+
+// Load tracks from album
+async function loadAlbumTracks(albumId, albumName) {
+    currentAlbumId = albumId;
+
+    // Hide panel title (album header shows title now)
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) tracksPanelTitle.style.display = 'none';
+
+    // Show back button, hide sub-toggle
+    if (albumBackBtn) albumBackBtn.style.display = 'flex';
+    const artistSubToggle = document.getElementById('artist-sub-toggle');
+    if (artistSubToggle) artistSubToggle.style.display = 'none';
+
+    const cacheKey = CACHE_KEYS.ALBUM_TRACKS_PREFIX + albumId;
+
+    // Check cache first
+    const cached = getCache(cacheKey);
+    if (cached) {
+        renderAlbumTracks(cached);
+        updateURL();
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Nummers laden...</div>';
+
+    try {
+        const response = await fetch(`/api/album/${albumId}/tracks`);
+        const tracks = await response.json();
+
+        // Cache the result
+        setCache(cacheKey, tracks);
+        renderAlbumTracks(tracks);
+        updateURL();
+    } catch (error) {
+        console.error('Error loading album tracks:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+    }
+}
+
+// Go back from album tracks to albums list
+function goBackToAlbums() {
+    currentAlbumId = null;
+
+    // Hide back button, show sub-toggle
+    if (albumBackBtn) albumBackBtn.style.display = 'none';
+    const artistSubToggle = document.getElementById('artist-sub-toggle');
+    if (artistSubToggle) artistSubToggle.style.display = 'grid';
+
+    // Show and update panel title
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) {
+        tracksPanelTitle.style.display = 'block';
+        tracksPanelTitle.textContent = 'Albums';
+    }
+
+    // Load albums again
+    if (currentArtistId) {
+        loadArtistAlbums(currentArtistId);
+    }
+    updateURL();
+}
+
+// Render album tracks as list view with header
+function renderAlbumTracks(tracks) {
+    tracksContainer.innerHTML = '';
+
+    if (tracks.length === 0) {
+        tracksContainer.innerHTML = '<div class="empty-state">Geen nummers gevonden</div>';
+        return;
+    }
+
+    // Album header
+    const albumImage = tracks[0]?.image || '/static/img/placeholder.svg';
+    const albumName = tracks[0]?.album || '';
+    const artistName = tracks[0]?.artist || '';
+    const releaseYear = tracks[0]?.release_date?.split('-')[0] || '';
+    const totalTracks = tracks.length;
+    const totalDuration = formatTotalDuration(
+        tracks.reduce((sum, t) => sum + (t.duration_ms || 0), 0)
+    );
+
+    // Build metadata string (handle missing year gracefully)
+    const metaParts = [];
+    if (releaseYear) metaParts.push(releaseYear);
+    metaParts.push(`${totalTracks} nummers`);
+    metaParts.push(totalDuration);
+    const metaString = metaParts.join(' • ');
+
+    const header = document.createElement('div');
+    header.className = 'album-header';
+
+    // Image container with play button overlay
+    const imageContainer = document.createElement('div');
+    imageContainer.className = 'album-header-image-container';
+
+    const img = document.createElement('img');
+    img.className = 'album-header-image';
+    img.src = albumImage;
+    img.alt = escapeHtml(albumName);
+    imageContainer.appendChild(img);
+
+    // Play button overlay
+    const playBtn = document.createElement('button');
+    playBtn.className = 'album-play-btn';
+    playBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+    playBtn.onclick = (e) => {
+        e.stopPropagation();
+        playTrack(tracks[0].uri);
+    };
+    imageContainer.appendChild(playBtn);
+
+    header.appendChild(imageContainer);
+
+    // Info section
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'album-header-info';
+    infoDiv.innerHTML = `
+        <div class="album-header-title">${escapeHtml(albumName)}</div>
+        <div class="album-header-artist">${escapeHtml(artistName)}</div>
+        <div class="album-header-meta">${metaString}</div>
+    `;
+    header.appendChild(infoDiv);
+
+    tracksContainer.appendChild(header);
+
+    // Track list
+    const listContainer = document.createElement('div');
+    listContainer.className = 'album-tracks-list';
+
+    tracks.forEach(track => {
+        const trackDiv = document.createElement('div');
+        trackDiv.className = 'album-track-item';
+        trackDiv.setAttribute('data-track-id', track.id);
+
+        // Track number
+        const numberSpan = document.createElement('span');
+        numberSpan.className = 'track-number';
+        numberSpan.textContent = track.track_number || '';
+        trackDiv.appendChild(numberSpan);
+
+        // Track title
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'track-title';
+        titleSpan.textContent = track.name;
+        trackDiv.appendChild(titleSpan);
+
+        // Duration
+        const durationSpan = document.createElement('span');
+        durationSpan.className = 'track-duration';
+        durationSpan.textContent = formatDuration(track.duration_ms);
+        trackDiv.appendChild(durationSpan);
+
+        trackDiv.onclick = () => playTrack(track.uri);
+        listContainer.appendChild(trackDiv);
+    });
+
+    tracksContainer.appendChild(listContainer);
+
+    // Highlight currently playing track if any
+    highlightCurrentTrack();
+}
+
+// Format duration from milliseconds to mm:ss
+function formatDuration(ms) {
+    if (!ms) return '';
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Format total duration for album header
+function formatTotalDuration(ms) {
+    const minutes = Math.floor(ms / 60000);
+    if (minutes >= 60) {
+        const hours = Math.floor(minutes / 60);
+        const mins = minutes % 60;
+        return `${hours} uur ${mins} min`;
+    }
+    return `${minutes} min`;
 }
 
 // Load tracks from playlist
@@ -465,6 +1010,7 @@ async function loadTracks(playlistId, playlistBtn) {
     const cached = getCache(cacheKey);
     if (cached) {
         renderTracks(cached);
+        updateURL();
         return;
     }
 
@@ -477,6 +1023,7 @@ async function loadTracks(playlistId, playlistBtn) {
         // Cache the result
         setCache(cacheKey, tracks);
         renderTracks(tracks);
+        updateURL();
     } catch (error) {
         console.error('Error loading tracks:', error);
         tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
@@ -495,6 +1042,7 @@ function renderTracks(tracks) {
     tracks.forEach(track => {
         const trackDiv = document.createElement('div');
         trackDiv.className = 'track-item';
+        trackDiv.setAttribute('data-track-id', track.id);
 
         // Always create image element with fallback to prevent layout shift
         const img = document.createElement('img');
@@ -515,6 +1063,9 @@ function renderTracks(tracks) {
         trackDiv.onclick = () => playTrack(track.uri);
         tracksContainer.appendChild(trackDiv);
     });
+
+    // Highlight currently playing track if any
+    highlightCurrentTrack();
 }
 
 // Play specific track
@@ -527,7 +1078,8 @@ async function playTrack(uri) {
             },
             body: JSON.stringify({
                 uri: uri,
-                playlist_id: currentPlaylistId
+                playlist_id: currentPlaylistId,
+                album_id: currentAlbumId
             })
         });
 
@@ -818,6 +1370,10 @@ async function updateCurrentTrack() {
             trackName.textContent = data.track.name;
             trackArtist.textContent = data.track.artist;
 
+            // Store current track ID and highlight in list
+            currentTrackId = data.track.id;
+            highlightCurrentTrack();
+
             // Update progress
             trackDuration = data.track.duration_ms;
             trackProgress = data.track.progress_ms;
@@ -830,6 +1386,10 @@ async function updateCurrentTrack() {
             trackName.textContent = '-';
             trackArtist.textContent = '-';
 
+            // Clear current track ID and remove highlights
+            currentTrackId = null;
+            highlightCurrentTrack();
+
             // Reset progress to 0:00
             trackDuration = 0;
             trackProgress = 0;
@@ -838,6 +1398,24 @@ async function updateCurrentTrack() {
     } catch (error) {
         console.error('Error updating current track:', error);
     }
+}
+
+// Highlight currently playing track in the track list
+function highlightCurrentTrack() {
+    // Remove existing playing class from all tracks
+    document.querySelectorAll('.album-track-item.playing, .track-item.playing').forEach(el => {
+        el.classList.remove('playing');
+    });
+
+    // If no track is playing, we're done
+    if (!currentTrackId) return;
+
+    // Find and highlight the matching track
+    document.querySelectorAll('.album-track-item[data-track-id], .track-item[data-track-id]').forEach(el => {
+        if (el.getAttribute('data-track-id') === currentTrackId) {
+            el.classList.add('playing');
+        }
+    });
 }
 
 // Update play/pause button

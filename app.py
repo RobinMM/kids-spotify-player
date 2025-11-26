@@ -61,8 +61,13 @@ def get_cache_path(user_id='default'):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, f'.cache-{user_id}')
 
-def get_spotify_oauth():
-    """Create SpotifyOAuth instance"""
+def get_spotify_oauth(show_dialog=False):
+    """Create SpotifyOAuth instance
+
+    Args:
+        show_dialog: If True, force Spotify to show account selection screen.
+                     Only set to True after explicit logout to allow account switching.
+    """
     if not check_credentials():
         return None
 
@@ -72,7 +77,7 @@ def get_spotify_oauth():
         redirect_uri=os.getenv('SPOTIFY_REDIRECT_URI'),
         scope=SPOTIFY_SCOPE,
         cache_path=get_cache_path(session.get('user_id', 'default')),
-        show_dialog=True  # Force login screen, allows switching between accounts
+        show_dialog=show_dialog
     )
 
 def get_spotify_client():
@@ -372,7 +377,9 @@ def login():
     if not check_credentials():
         return redirect('/')
 
-    sp_oauth = get_spotify_oauth()
+    # Only show account selection dialog after explicit logout
+    show_dialog = request.args.get('show_dialog', 'false') == 'true'
+    sp_oauth = get_spotify_oauth(show_dialog=show_dialog)
     auth_url = sp_oauth.get_authorize_url()
     return redirect(auth_url)
 
@@ -436,8 +443,8 @@ def logout():
     # Clear Flask session
     session.clear()
 
-    # Create redirect response
-    response = redirect('/')
+    # Redirect to login with show_dialog=true to allow account switching
+    response = redirect('/login?show_dialog=true')
 
     # Explicitly delete the session cookie using Flask config
     response.delete_cookie(
@@ -574,6 +581,70 @@ def get_artist_top_tracks(artist_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/artist/<artist_id>/albums')
+def get_artist_albums(artist_id):
+    """Get albums from a specific artist (only full albums, no singles)"""
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    try:
+        # Get only full albums (no singles/EPs)
+        results = sp.artist_albums(artist_id, album_type='album', country='NL', limit=50)
+
+        albums = [
+            {
+                'id': album['id'],
+                'uri': album['uri'],
+                'name': album['name'],
+                'image': album['images'][0]['url'] if album['images'] else None,
+                'release_date': album['release_date'],
+                'total_tracks': album['total_tracks']
+            }
+            for album in results['items']
+        ]
+
+        print(f"Fetched {len(albums)} albums for artist {artist_id}")
+        return jsonify(albums)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/album/<album_id>/tracks')
+def get_album_tracks(album_id):
+    """Get tracks from a specific album"""
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    try:
+        # Get album info for artwork
+        album_info = sp.album(album_id)
+        album_image = album_info['images'][0]['url'] if album_info['images'] else None
+        album_uri = album_info['uri']
+
+        # Get album tracks
+        results = sp.album_tracks(album_id)
+
+        tracks = [
+            {
+                'id': track['id'],
+                'uri': track['uri'],
+                'name': track['name'],
+                'artist': ', '.join([artist['name'] for artist in track['artists']]),
+                'album': album_info['name'],
+                'album_uri': album_uri,
+                'duration_ms': track['duration_ms'],
+                'image': album_image,
+                'track_number': track['track_number'],
+                'release_date': album_info.get('release_date', '')
+            }
+            for track in results['items']
+        ]
+
+        return jsonify(tracks)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/playlist/<playlist_id>')
 def get_playlist_tracks(playlist_id):
     """Get tracks from a specific playlist"""
@@ -619,6 +690,7 @@ def get_current_track():
             'shuffle': current.get('shuffle_state', False),
             'volume_percent': device.get('volume_percent', 0),
             'track': {
+                'id': track['id'],
                 'name': track['name'],
                 'artist': ', '.join([artist['name'] for artist in track['artists']]),
                 'album': track['album']['name'],
@@ -665,6 +737,7 @@ def play_track(sp):
     data = request.get_json()
     track_uri = data.get('uri')
     playlist_id = data.get('playlist_id')
+    album_id = data.get('album_id')
 
     if not track_uri:
         return jsonify({'error': 'No track URI provided'}), 400
@@ -672,6 +745,10 @@ def play_track(sp):
     if playlist_id:
         # Play from playlist context with offset to specific track
         context_uri = f'spotify:playlist:{playlist_id}'
+        sp.start_playback(context_uri=context_uri, offset={'uri': track_uri})
+    elif album_id:
+        # Play from album context with offset to specific track
+        context_uri = f'spotify:album:{album_id}'
         sp.start_playback(context_uri=context_uri, offset={'uri': track_uri})
     else:
         # Fallback: play only this track (backwards compatible)

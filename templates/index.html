@@ -35,7 +35,21 @@
 
         <!-- Middle Panel: Tracks -->
         <div class="panel panel-middle">
-            <h2 class="panel-title" id="tracks-panel-title">Nummers</h2>
+            <div class="panel-header">
+                <div class="panel-title-row">
+                    <button class="back-btn" id="album-back-btn" style="display: none;" title="Terug naar albums">
+                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+                        </svg>
+                    </button>
+                    <h2 class="panel-title" id="tracks-panel-title">Nummers</h2>
+                </div>
+                <!-- Sub-toggle for artists view: Top Nummers / Albums -->
+                <div class="artist-sub-toggle" id="artist-sub-toggle" style="display: none;">
+                    <button class="sub-toggle-btn active" data-subview="tracks">Top Nummers</button>
+                    <button class="sub-toggle-btn" data-subview="albums">Albums</button>
+                </div>
+            </div>
             <div class="scrollable">
                 <div id="tracks-container">
                     <div class="empty-state">Selecteer een playlist</div>
