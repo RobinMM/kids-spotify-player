@@ -1,9 +1,10 @@
 # Environment variables
 .env
 
-# Markdown (except README)
+# Markdown (except README and Pi setup)
 *.md
 !README.md
+!RASPBERRY_PI_SETUP.md
 
 # Claude local settings
 .claude/
