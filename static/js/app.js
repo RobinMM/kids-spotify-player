@@ -1,6 +1,8 @@
 // State management
 let isPlaying = false;
 let currentPlaylistId = null;
+let currentArtistId = null;
+let currentViewMode = 'playlists'; // 'playlists' or 'artists'
 let isShuffleOn = false;
 let devicePollingInterval = null;
 
@@ -18,7 +20,9 @@ const CACHE_DURATION = 60000; // 60 seconds
 // Playlist/tracks cache configuration
 const CACHE_KEYS = {
     PLAYLISTS: 'spotify-playlists-cache',
-    TRACKS_PREFIX: 'spotify-tracks-'
+    TRACKS_PREFIX: 'spotify-tracks-',
+    ARTISTS: 'spotify-artists-cache',
+    ARTIST_TRACKS_PREFIX: 'spotify-artist-tracks-'
 };
 const PLAYLIST_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -53,6 +57,13 @@ function clearPlaylistCache() {
     localStorage.removeItem(CACHE_KEYS.PLAYLISTS);
     Object.keys(localStorage)
         .filter(k => k.startsWith(CACHE_KEYS.TRACKS_PREFIX))
+        .forEach(k => localStorage.removeItem(k));
+}
+
+function clearArtistCache() {
+    localStorage.removeItem(CACHE_KEYS.ARTISTS);
+    Object.keys(localStorage)
+        .filter(k => k.startsWith(CACHE_KEYS.ARTIST_TRACKS_PREFIX))
         .forEach(k => localStorage.removeItem(k));
 }
 
@@ -228,6 +239,14 @@ function setupEventListeners() {
             switchTab(tabName);
         });
     });
+
+    // View toggle (Playlists / Artists) event listeners
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const view = btn.getAttribute('data-view');
+            switchViewMode(view);
+        });
+    });
 }
 
 // Load playlists
@@ -291,10 +310,148 @@ function renderPlaylists(playlists) {
     }
 }
 
+// Switch between playlists and artists view
+function switchViewMode(mode) {
+    if (mode === currentViewMode) return;
+
+    currentViewMode = mode;
+
+    // Update toggle buttons
+    document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-view') === mode);
+    });
+
+    // Update middle panel title
+    const tracksPanelTitle = document.getElementById('tracks-panel-title');
+    if (tracksPanelTitle) {
+        tracksPanelTitle.textContent = mode === 'playlists' ? 'Nummers' : 'Top Nummers';
+    }
+
+    // Animate content switch
+    playlistsContainer.classList.add('switching');
+
+    setTimeout(() => {
+        // Clear tracks panel when switching modes
+        tracksContainer.innerHTML = '<div class="empty-state">Selecteer een ' +
+            (mode === 'playlists' ? 'playlist' : 'artiest') + '</div>';
+
+        // Load appropriate content
+        if (mode === 'playlists') {
+            currentArtistId = null;
+            loadPlaylists();
+        } else {
+            currentPlaylistId = null;
+            loadArtists();
+        }
+
+        playlistsContainer.classList.remove('switching');
+    }, 150);
+}
+
+// Load artists
+async function loadArtists() {
+    // Check cache first
+    const cached = getCache(CACHE_KEYS.ARTISTS);
+    if (cached) {
+        renderArtists(cached);
+        return;
+    }
+
+    playlistsContainer.innerHTML = '<div class="loading">Artiesten laden...</div>';
+
+    try {
+        const response = await fetch('/api/artists');
+        const artists = await response.json();
+
+        // Cache the result
+        setCache(CACHE_KEYS.ARTISTS, artists);
+        renderArtists(artists);
+    } catch (error) {
+        console.error('Error loading artists:', error);
+        playlistsContainer.innerHTML = '<div class="empty-state">Fout bij laden van artiesten</div>';
+    }
+}
+
+// Render artists to DOM
+function renderArtists(artists) {
+    playlistsContainer.innerHTML = '';
+
+    if (artists.length === 0) {
+        playlistsContainer.innerHTML = '<div class="empty-state">Geen artiesten gevonden</div>';
+        return;
+    }
+
+    artists.forEach(artist => {
+        const btn = document.createElement('button');
+        btn.className = 'artist-item';
+
+        // Create circular image
+        const img = document.createElement('img');
+        img.src = artist.image || '/static/img/placeholder.svg';
+        img.alt = artist.name;
+        img.className = 'artist-image';
+        btn.appendChild(img);
+
+        // Create name element
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'artist-name';
+        nameSpan.textContent = artist.name;
+        btn.appendChild(nameSpan);
+
+        btn.onclick = () => loadArtistTracks(artist.id, btn);
+        playlistsContainer.appendChild(btn);
+    });
+
+    // Automatically load first artist
+    if (artists.length > 0) {
+        const firstBtn = playlistsContainer.querySelector('.artist-item');
+        if (firstBtn) {
+            loadArtistTracks(artists[0].id, firstBtn);
+        }
+    }
+}
+
+// Load top tracks from artist
+async function loadArtistTracks(artistId, artistBtn) {
+    // Store current artist ID (no playlist context for artist tracks)
+    currentArtistId = artistId;
+    currentPlaylistId = null; // Clear playlist context
+
+    // Update active state
+    document.querySelectorAll('.artist-item').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    artistBtn.classList.add('active');
+
+    const cacheKey = CACHE_KEYS.ARTIST_TRACKS_PREFIX + artistId;
+
+    // Check cache first
+    const cached = getCache(cacheKey);
+    if (cached) {
+        renderTracks(cached);
+        return;
+    }
+
+    tracksContainer.innerHTML = '<div class="loading">Top nummers laden...</div>';
+
+    try {
+        const response = await fetch(`/api/artist/${artistId}/top-tracks`);
+        const tracks = await response.json();
+
+        // Cache the result
+        setCache(cacheKey, tracks);
+        renderTracks(tracks);
+    } catch (error) {
+        console.error('Error loading artist tracks:', error);
+        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+    }
+}
+
 // Load tracks from playlist
 async function loadTracks(playlistId, playlistBtn) {
     // Store current playlist ID for playback context
     currentPlaylistId = playlistId;
+    currentArtistId = null; // Clear artist context
 
     // Update active state
     document.querySelectorAll('.playlist-item').forEach(btn => {
@@ -708,11 +865,15 @@ function hideSettingsModal() {
     stopDevicePolling(); // Stop polling when modal closes
 }
 
-// Refresh playlists
+// Refresh content (playlists or artists based on current view)
 function refreshPlaylists() {
-    // Clear all playlist and track caches
-    clearPlaylistCache();
-    loadPlaylists();
+    if (currentViewMode === 'playlists') {
+        clearPlaylistCache();
+        loadPlaylists();
+    } else {
+        clearArtistCache();
+        loadArtists();
+    }
     hideSettingsModal();
 }
 

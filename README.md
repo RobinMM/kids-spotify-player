@@ -5,7 +5,7 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 ## Features
 
 - Spotify OAuth authenticatie
-- Playlists bekijken en nummers afspelen
+- Playlists en gevolgde artiesten bekijken
 - Playback controls (play, pause, next, previous, shuffle)
 - Album art en track info weergave
 - Dark/Light theme met aanpasbare kleuren
@@ -74,7 +74,7 @@ Open: **http://localhost:5000**
 ### Interface
 
 De interface heeft 3 panelen:
-- **Links**: Playlists
+- **Links**: Playlists / Artiesten (toggle)
 - **Midden**: Nummers van geselecteerde playlist
 - **Rechts**: Now playing + controls
 

@@ -12,9 +12,22 @@
 </head>
 <body>
     <div class="container">
-        <!-- Left Panel: Playlists -->
+        <!-- Left Panel: Playlists / Artists -->
         <div class="panel panel-left">
-            <h2 class="panel-title">Playlists</h2>
+            <div class="view-toggle">
+                <button class="view-toggle-btn active" data-view="playlists">
+                    <svg class="toggle-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
+                    </svg>
+                    <span>Playlists</span>
+                </button>
+                <button class="view-toggle-btn" data-view="artists">
+                    <svg class="toggle-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                    <span>Artiesten</span>
+                </button>
+            </div>
             <div id="playlists-container" class="scrollable">
                 <div class="loading">Playlists laden...</div>
             </div>
@@ -22,7 +35,7 @@
 
         <!-- Middle Panel: Tracks -->
         <div class="panel panel-middle">
-            <h2 class="panel-title">Nummers</h2>
+            <h2 class="panel-title" id="tracks-panel-title">Nummers</h2>
             <div class="scrollable">
                 <div id="tracks-container">
                     <div class="empty-state">Selecteer een playlist</div>

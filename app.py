@@ -46,7 +46,7 @@ _audio_devices_cache = None
 _cache_lock = Lock()
 
 # Spotify OAuth configuration
-SPOTIFY_SCOPE = 'user-read-playback-state,user-modify-playback-state,playlist-read-private,user-library-read'
+SPOTIFY_SCOPE = 'user-read-playback-state,user-modify-playback-state,playlist-read-private,user-library-read,user-follow-read'
 
 def check_credentials():
     """Check if Spotify credentials are configured"""
@@ -509,6 +509,69 @@ def get_playlists():
         print(f"\n!!! ERROR in get_playlists !!!")
         print(error_details)
         print(f"!!! END ERROR !!!\n")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/artists')
+def get_artists():
+    """Get user's followed artists"""
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    try:
+        # Fetch ALL followed artists with cursor-based pagination
+        all_artists = []
+        results = sp.current_user_followed_artists(limit=50)
+        all_artists.extend(results['artists']['items'])
+
+        # Keep fetching next pages until there are no more
+        while results['artists']['cursors'] and results['artists']['cursors'].get('after'):
+            results = sp.current_user_followed_artists(
+                limit=50,
+                after=results['artists']['cursors']['after']
+            )
+            all_artists.extend(results['artists']['items'])
+
+        # Map to response format
+        items = [
+            {
+                'id': a['id'],
+                'name': a['name'],
+                'image': a['images'][0]['url'] if a['images'] else None
+            }
+            for a in all_artists
+        ]
+
+        print(f"Fetched {len(items)} followed artists")
+        return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/artist/<artist_id>/top-tracks')
+def get_artist_top_tracks(artist_id):
+    """Get top tracks for a specific artist (max 10)"""
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    try:
+        # Get top tracks (Spotify returns max 10)
+        results = sp.artist_top_tracks(artist_id, country='NL')
+
+        tracks = [
+            {
+                'id': track['id'],
+                'uri': track['uri'],
+                'name': track['name'],
+                'artist': ', '.join([artist['name'] for artist in track['artists']]),
+                'album': track['album']['name'],
+                'duration_ms': track['duration_ms'],
+                'image': track['album']['images'][0]['url'] if track['album']['images'] else None
+            }
+            for track in results['tracks']
+        ]
+        return jsonify(tracks)
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/playlist/<playlist_id>')
