@@ -14,6 +14,14 @@ import requests
 # mDNS/Zeroconf for local Spotify Connect discovery
 from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
 
+# ZeroConf addUser flow for activating local devices
+try:
+    from spotify_zeroconf import SpotifyZeroConf
+    ZEROCONF_ACTIVATION_AVAILABLE = True
+except ImportError:
+    ZEROCONF_ACTIVATION_AVAILABLE = False
+    print("Warning: spotify_zeroconf not available - local device activation disabled")
+
 # WSL detection helper
 def is_wsl():
     """Check if running in Windows Subsystem for Linux"""
@@ -978,6 +986,54 @@ def transfer_playback_local():
         return jsonify({'error': str(e)}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/devices/local/activate', methods=['POST'])
+def activate_local_device():
+    """Activate a local Spotify Connect device via ZeroConf addUser flow.
+
+    This is called when direct transfer fails because the device is not
+    registered with Spotify's servers yet.
+    """
+    if not ZEROCONF_ACTIVATION_AVAILABLE:
+        return jsonify({
+            'error': 'ZeroConf activatie niet beschikbaar (cryptography niet geinstalleerd)'
+        }), 500
+
+    data = request.get_json()
+    ip = data.get('ip')
+    port = data.get('port')
+
+    if not ip or not port:
+        return jsonify({'error': 'IP en poort zijn verplicht'}), 400
+
+    try:
+        # Use credentials from librespot cache
+        credentials_path = os.path.expanduser("~/.cache/librespot/credentials.json")
+
+        if not os.path.exists(credentials_path):
+            return jsonify({
+                'error': 'Geen credentials gevonden. Activeer eerst via de Spotify app.'
+            }), 400
+
+        client = SpotifyZeroConf(credentials_path)
+        result = client.activate_device(ip, int(port))
+
+        return jsonify({
+            'success': True,
+            'status': result.get('status'),
+            'message': result.get('statusString', 'Device geactiveerd')
+        })
+    except FileNotFoundError:
+        return jsonify({
+            'error': 'Credentials bestand niet gevonden. Activeer eerst via de Spotify app.'
+        }), 400
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        print(f"[ZeroConf] Activation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # Raspberry Pi placeholder endpoints (for future implementation)
 @app.route('/api/shutdown', methods=['POST'])
