@@ -10,6 +10,7 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 - Album art en track info weergave
 - Dark/Light theme met aanpasbare kleuren
 - Spotify apparaat selectie met live status
+- Lokale Spotify Connect devices via mDNS discovery (librespot/Raspotify)
 - Audio output device selectie (Windows/Linux)
 - Kindvriendelijke interface met grote knoppen
 - Apparaat beveiliging (alleen toegestane devices kunnen bedienen)
