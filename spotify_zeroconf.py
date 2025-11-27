@@ -91,7 +91,7 @@ class SpotifyZeroConf:
         device_public_key_bytes = base64.b64decode(device_public_key_b64)
         device_public_key = int.from_bytes(device_public_key_bytes, 'big')
         shared_secret = pow(device_public_key, private_key, DH_PRIME)
-        return shared_secret.to_bytes(96, 'big')
+        return shared_secret.to_bytes(192, 'big')
 
     def _encrypt_blob(self, shared_secret: bytes, data: bytes) -> bytes:
         """
@@ -162,7 +162,7 @@ class SpotifyZeroConf:
         # 4. Encode voor transport
         blob_b64 = base64.b64encode(encrypted_blob).decode()
         client_key_b64 = base64.b64encode(
-            public_key.to_bytes(96, 'big')
+            public_key.to_bytes(192, 'big')
         ).decode()
 
         # 5. Stuur addUser request
