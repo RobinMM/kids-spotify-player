@@ -9,6 +9,10 @@ import glob
 from dotenv import load_dotenv
 from threading import Thread, Lock
 import time
+import requests
+
+# mDNS/Zeroconf for local Spotify Connect discovery
+from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
 
 # WSL detection helper
 def is_wsl():
@@ -44,6 +48,111 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-product
 # Audio device cache (no TTL - refresh only on manual button click)
 _audio_devices_cache = None
 _cache_lock = Lock()
+
+# Spotify Connect mDNS discovery
+_spotify_connect_devices = {}
+_spotify_connect_lock = Lock()
+_zeroconf_instance = None
+_service_browser = None
+
+class SpotifyConnectListener(ServiceListener):
+    """Listener for Spotify Connect devices on the local network"""
+
+    def update_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        """Called when a service is updated"""
+        self._process_service(zc, type_, name, "updated")
+
+    def remove_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        """Called when a service is removed"""
+        with _spotify_connect_lock:
+            # Extract device name from service name (format: "DeviceName._spotify-connect._tcp.local.")
+            device_name = name.replace("._spotify-connect._tcp.local.", "")
+            if device_name in _spotify_connect_devices:
+                del _spotify_connect_devices[device_name]
+                print(f"[mDNS] Spotify Connect device removed: {device_name}")
+
+    def add_service(self, zc: Zeroconf, type_: str, name: str) -> None:
+        """Called when a new service is discovered"""
+        self._process_service(zc, type_, name, "discovered")
+
+    def _process_service(self, zc: Zeroconf, type_: str, name: str, action: str) -> None:
+        """Process a discovered or updated service"""
+        info = zc.get_service_info(type_, name)
+        if info:
+            # Extract device info
+            device_name = name.replace("._spotify-connect._tcp.local.", "")
+            addresses = [addr for addr in info.parsed_addresses()]
+            port = info.port
+
+            # Get CPath from TXT record (endpoint path for ZeroConf API)
+            cpath = "/"
+            if info.properties:
+                cpath_bytes = info.properties.get(b'CPath', b'/')
+                cpath = cpath_bytes.decode('utf-8') if isinstance(cpath_bytes, bytes) else cpath_bytes
+
+            device_info = {
+                'name': device_name,
+                'addresses': addresses,
+                'port': port,
+                'cpath': cpath,
+                'host': info.server
+            }
+
+            with _spotify_connect_lock:
+                _spotify_connect_devices[device_name] = device_info
+
+            print(f"[mDNS] Spotify Connect device {action}: {device_name} at {addresses[0] if addresses else 'unknown'}:{port}")
+
+def start_spotify_connect_discovery():
+    """Start mDNS discovery for Spotify Connect devices"""
+    global _zeroconf_instance, _service_browser
+
+    try:
+        _zeroconf_instance = Zeroconf()
+        listener = SpotifyConnectListener()
+        _service_browser = ServiceBrowser(_zeroconf_instance, "_spotify-connect._tcp.local.", listener)
+        print("[mDNS] Spotify Connect discovery started")
+    except Exception as e:
+        print(f"[mDNS] Failed to start discovery: {e}")
+
+def stop_spotify_connect_discovery():
+    """Stop mDNS discovery"""
+    global _zeroconf_instance, _service_browser
+
+    if _service_browser:
+        _service_browser.cancel()
+        _service_browser = None
+    if _zeroconf_instance:
+        _zeroconf_instance.close()
+        _zeroconf_instance = None
+    print("[mDNS] Spotify Connect discovery stopped")
+
+def get_spotify_connect_devices():
+    """Get list of discovered Spotify Connect devices"""
+    with _spotify_connect_lock:
+        return list(_spotify_connect_devices.values())
+
+def get_device_info_from_zeroconf(device):
+    """Fetch device info from the ZeroConf API endpoint"""
+    if not device.get('addresses') or not device.get('port'):
+        return None
+
+    try:
+        ip = device['addresses'][0]
+        port = device['port']
+        cpath = device.get('cpath', '/')
+
+        # Build URL for getInfo action
+        url = f"http://{ip}:{port}{cpath}"
+        params = {'action': 'getInfo'}
+
+        response = requests.get(url, params=params, timeout=3)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"[mDNS] Failed to get device info for {device.get('name')}: {e}")
+
+    return None
 
 # Spotify OAuth configuration
 SPOTIFY_SCOPE = 'user-read-playback-state,user-modify-playback-state,playlist-read-private,user-library-read,user-follow-read'
@@ -835,6 +944,41 @@ def transfer_playback():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/transfer-playback-local', methods=['POST'])
+def transfer_playback_local():
+    """Transfer playback to a locally discovered mDNS device.
+
+    This attempts to transfer playback using the device_id obtained from
+    the ZeroConf getInfo endpoint, even if the device is not (yet) visible
+    in the Spotify Web API.
+    """
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    data = request.get_json()
+    device_id = data.get('device_id')
+
+    if not device_id:
+        return jsonify({'error': 'No device ID provided'}), 400
+
+    try:
+        # Try direct transfer with the mDNS device_id
+        sp.transfer_playback(device_id, force_play=True)
+        return jsonify({'success': True, 'method': 'direct_transfer'})
+    except spotipy.exceptions.SpotifyException as e:
+        error_str = str(e).lower()
+        if 'device not found' in error_str or 'not found' in error_str:
+            # Device not recognized by Spotify - needs ZeroConf activation
+            return jsonify({
+                'success': False,
+                'error': 'Device niet gevonden. ZeroConf activatie nodig.',
+                'needs_activation': True
+            }), 404
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Raspberry Pi placeholder endpoints (for future implementation)
 @app.route('/api/shutdown', methods=['POST'])
 def shutdown():
@@ -888,6 +1032,38 @@ def set_audio_output():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/spotify-connect/local')
+def get_local_spotify_devices():
+    """Get Spotify Connect devices discovered via mDNS on local network"""
+    try:
+        devices = get_spotify_connect_devices()
+
+        # Enrich with device info from ZeroConf API if available
+        enriched_devices = []
+        for device in devices:
+            device_data = {
+                'name': device['name'],
+                'ip': device['addresses'][0] if device.get('addresses') else None,
+                'port': device.get('port'),
+                'type': 'local',  # Mark as locally discovered
+                'is_active': False  # Local devices need activation
+            }
+
+            # Try to get additional info from device's ZeroConf endpoint
+            zc_info = get_device_info_from_zeroconf(device)
+            if zc_info:
+                device_data['device_id'] = zc_info.get('deviceID')
+                device_data['remote_name'] = zc_info.get('remoteName', device['name'])
+                device_data['device_type'] = zc_info.get('deviceType')
+                device_data['brand'] = zc_info.get('brandDisplayName')
+                device_data['model'] = zc_info.get('modelDisplayName')
+
+            enriched_devices.append(device_data)
+
+        return jsonify({'devices': enriched_devices})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 def preload_audio_devices_background():
     """Preload audio devices cache in background on startup"""
     time.sleep(2)  # Wait for Flask to start
@@ -910,4 +1086,11 @@ if __name__ == '__main__':
     preload_thread.start()
     print("Background audio device cache preload started...")
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Start Spotify Connect mDNS discovery
+    start_spotify_connect_discovery()
+
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=True)
+    finally:
+        # Clean up mDNS discovery on shutdown
+        stop_spotify_connect_discovery()

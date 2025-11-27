@@ -1086,6 +1086,47 @@ svg.icon {
     background: var(--border-color);
 }
 
+/* Local mDNS discovered devices */
+.device-item.local-device {
+    border-style: dashed;
+    opacity: 0.8;
+}
+
+.device-item.local-device:hover {
+    opacity: 1;
+}
+
+.local-badge {
+    background: var(--primary-color);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+
+.device-separator {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0;
+    font-size: 11px;
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.device-separator::before,
+.device-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
 /* Loading spinner on device */
 .device-loading-spinner {
     margin-left: auto;

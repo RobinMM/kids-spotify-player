@@ -1494,24 +1494,59 @@ function stopDevicePolling() {
     }
 }
 
-// Load devices
+// Load devices (both Spotify API and local mDNS discovered)
 async function loadDevices() {
     try {
-        const response = await fetch('/api/devices');
-        const data = await response.json();
+        // Fetch both Spotify API devices and local mDNS devices in parallel
+        const [spotifyResponse, localResponse] = await Promise.all([
+            fetch('/api/devices'),
+            fetch('/api/spotify-connect/local')
+        ]);
+
+        const spotifyData = await spotifyResponse.json();
+        const localData = await localResponse.json();
 
         const devicesList = document.getElementById('devices-list');
         devicesList.innerHTML = '';
 
-        if (!data.devices || data.devices.length === 0) {
+        const spotifyDevices = spotifyData.devices || [];
+        const localDevices = localData.devices || [];
+
+        // Filter out local devices that are already in Spotify API list (by name match)
+        const spotifyDeviceNames = spotifyDevices.map(d => d.name.toLowerCase());
+        const uniqueLocalDevices = localDevices.filter(
+            local => !spotifyDeviceNames.some(name =>
+                name.includes(local.name.toLowerCase()) ||
+                local.name.toLowerCase().includes(name)
+            )
+        );
+
+        if (spotifyDevices.length === 0 && uniqueLocalDevices.length === 0) {
             devicesList.innerHTML = '<div class="empty-state">Geen apparaten gevonden</div>';
             return;
         }
 
-        data.devices.forEach(device => {
+        // Show Spotify API devices first (these are active/registered)
+        spotifyDevices.forEach(device => {
             const deviceDiv = createDeviceElement(device);
             devicesList.appendChild(deviceDiv);
         });
+
+        // Show local mDNS devices (not yet registered with Spotify)
+        if (uniqueLocalDevices.length > 0) {
+            // Add separator if we have Spotify devices too
+            if (spotifyDevices.length > 0) {
+                const separator = document.createElement('div');
+                separator.className = 'device-separator';
+                separator.innerHTML = '<span>Lokale apparaten (niet geactiveerd)</span>';
+                devicesList.appendChild(separator);
+            }
+
+            uniqueLocalDevices.forEach(device => {
+                const deviceDiv = createLocalDeviceElement(device);
+                devicesList.appendChild(deviceDiv);
+            });
+        }
     } catch (error) {
         console.error('Error loading devices:', error);
         document.getElementById('devices-list').innerHTML = '<div class="empty-state">Fout bij laden van apparaten</div>';
@@ -1537,6 +1572,109 @@ function createDeviceElement(device) {
 
     div.onclick = () => selectDevice(device.id);
     return div;
+}
+
+function createLocalDeviceElement(device) {
+    const div = document.createElement('div');
+    div.className = 'device-item local-device';
+
+    // Use Speaker icon for local Spotify Connect devices
+    const icon = '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+
+    const displayName = device.remote_name || device.name;
+    const deviceInfo = device.ip ? `${device.ip}:${device.port}` : 'Lokaal netwerk';
+
+    div.innerHTML = `
+        <span class="device-icon">${icon}</span>
+        <div class="device-info">
+            <div class="device-name">${escapeHtml(displayName)}</div>
+            <div class="device-type">${escapeHtml(deviceInfo)}</div>
+        </div>
+        <span class="local-badge">mDNS</span>
+    `;
+
+    // Click to activate/transfer to local device
+    div.onclick = () => selectLocalDevice(device);
+
+    return div;
+}
+
+async function selectLocalDevice(device) {
+    const deviceId = device.device_id;
+    const displayName = device.remote_name || device.name;
+
+    if (!deviceId) {
+        showToast('Device ID niet beschikbaar', 'error');
+        return;
+    }
+
+    try {
+        // First try direct transfer with the mDNS device_id
+        const response = await fetch('/api/transfer-playback-local', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: deviceId })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(`Afspelen op ${displayName}`, 'info');
+            loadDevices(); // Refresh device list
+        } else if (data.needs_activation) {
+            // Device needs ZeroConf activation
+            showToast('Device moet eerst geactiveerd worden...', 'info');
+            await activateLocalDevice(device);
+        } else {
+            showToast(data.error || 'Fout bij selecteren device', 'error');
+        }
+    } catch (error) {
+        console.error('Error selecting local device:', error);
+        showToast('Fout bij verbinden met device', 'error');
+    }
+}
+
+async function activateLocalDevice(device) {
+    const ip = device.ip;
+    const port = device.port;
+    const deviceId = device.device_id;
+    const displayName = device.remote_name || device.name;
+
+    try {
+        // Try ZeroConf activation
+        const response = await fetch('/api/devices/local/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip, port })
+        });
+
+        if (response.ok) {
+            showToast(`${displayName} geactiveerd! Even geduld...`, 'info');
+
+            // Wait for device to register with Spotify
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Now try transfer playback
+            const transferResponse = await fetch('/api/transfer-playback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ device_id: deviceId })
+            });
+
+            if (transferResponse.ok) {
+                showToast(`Afspelen op ${displayName}`, 'info');
+                loadDevices();
+            } else {
+                showToast('Device geactiveerd, maar transfer mislukt', 'error');
+            }
+        } else {
+            const data = await response.json();
+            showToast(data.error || 'Activatie mislukt', 'error');
+        }
+    } catch (error) {
+        console.error('Error activating device:', error);
+        showToast('Fout bij activeren device', 'error');
+    }
 }
 
 function getDeviceIcon(type) {
