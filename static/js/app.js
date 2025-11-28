@@ -1,3 +1,109 @@
+// ============================================
+// DRAG SCROLL HANDLER
+// Enables touch scrolling by using mouse events
+// (Wayland/Chromium converts touch to mouse events)
+// ============================================
+
+function enableDragScroll() {
+  let scrollableParent = null;
+  let lastY = 0;
+  let startY = 0;
+  let velocityY = 0;
+  let lastTime = 0;
+  let isDragging = false;
+  let hasDragged = false;
+  let animationFrame = null;
+  const DRAG_THRESHOLD = 10;
+
+  function findScrollable(el) {
+    while (el && el !== document.body) {
+      const style = window.getComputedStyle(el);
+      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  // Click handler in capture phase to block clicks after drag
+  document.addEventListener('click', (e) => {
+    if (hasDragged) {
+      e.stopPropagation();
+      e.preventDefault();
+      hasDragged = false;
+    }
+  }, true);
+
+  document.addEventListener('mousedown', (e) => {
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    scrollableParent = findScrollable(e.target);
+    if (scrollableParent) {
+      isDragging = true;
+      lastY = e.clientY;
+      startY = e.clientY;
+      hasDragged = false;
+      lastTime = Date.now();
+      velocityY = 0;
+      e.preventDefault();
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging || !scrollableParent) return;
+
+    const deltaY = lastY - e.clientY;
+    const now = Date.now();
+    const dt = now - lastTime;
+
+    // Check if we've moved past the drag threshold
+    if (Math.abs(e.clientY - startY) > DRAG_THRESHOLD) {
+      hasDragged = true;
+    }
+
+    if (Math.abs(deltaY) > 2) {
+      scrollableParent.scrollTop += deltaY * 1.5;
+      if (dt > 0) velocityY = (deltaY / dt) * 20;
+    }
+
+    lastY = e.clientY;
+    lastTime = now;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+
+    if (Math.abs(velocityY) > 1 && scrollableParent) {
+      const el = scrollableParent;
+      const momentum = () => {
+        if (Math.abs(velocityY) < 0.5) return;
+        el.scrollTop += velocityY;
+        velocityY *= 0.92;
+        animationFrame = requestAnimationFrame(momentum);
+      };
+      animationFrame = requestAnimationFrame(momentum);
+    }
+  });
+
+  document.addEventListener('mouseleave', () => {
+    isDragging = false;
+  });
+}
+
+// Initialize drag scroll
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', enableDragScroll);
+} else {
+  enableDragScroll();
+}
+
+// ============================================
+// MAIN APPLICATION
+// ============================================
+
 // State management
 let isPlaying = false;
 let currentPlaylistId = null;

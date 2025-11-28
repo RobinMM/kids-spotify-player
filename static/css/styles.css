@@ -48,6 +48,7 @@ body {
     height: 100vh;
     margin: 0 auto;
     transition: background 0.3s ease, color 0.3s ease;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Main Container - Responsive, optimized for 1280x720 */
@@ -364,6 +365,10 @@ body {
     aspect-ratio: 1;
     border-radius: 8px;
     object-fit: cover;
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
 }
 
 .album-info-text {
@@ -410,6 +415,10 @@ body {
     object-fit: cover;
     flex-shrink: 0;
     border-radius: 50%;
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
 }
 
 .artist-name {
@@ -439,11 +448,31 @@ body {
     overflow-x: hidden;
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
+
+    /* Touch scrolling */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+
+    /* Blokkeer selectie */
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 /* Hide scrollbar for Chrome/Safari/Opera */
 .scrollable::-webkit-scrollbar {
     display: none;
+}
+
+/* Touch-friendly interactieve elementen */
+.scrollable .playlist-item,
+.scrollable .artist-item,
+.scrollable .track-item,
+.scrollable .album-item,
+.scrollable .album-track-item,
+.devices-list .device-item,
+.devices-list .bt-device {
+    touch-action: pan-y manipulation;
 }
 
 /* Loading & Empty States */
@@ -482,6 +511,10 @@ body {
     object-fit: cover;
     flex-shrink: 0;
     border-radius: 12px;
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
 }
 
 .playlist-name {
@@ -529,6 +562,10 @@ body {
     aspect-ratio: 1;
     border-radius: 8px;
     object-fit: cover;
+    -webkit-user-drag: none;
+    user-drag: none;
+    -webkit-touch-callout: none;
+    pointer-events: none;
 }
 
 .track-info-text {
@@ -618,6 +655,9 @@ body {
     overflow: visible;
     padding: 16px 0;
     margin: -16px 0;
+    touch-action: pan-x;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .progress-bar::before {
@@ -759,6 +799,9 @@ body {
     border-radius: 4px;
     background: var(--slider-track);
     outline: none;
+    touch-action: pan-x;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -1000,6 +1043,9 @@ svg.icon {
     flex-direction: column;
     gap: 20px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
 }
 
 .device-selection,
@@ -1017,6 +1063,11 @@ svg.icon {
     gap: 8px;
     max-height: 230px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .device-item {
@@ -1504,6 +1555,9 @@ svg.icon {
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    overscroll-behavior-y: contain;
 }
 
 .bluetooth-controls {
