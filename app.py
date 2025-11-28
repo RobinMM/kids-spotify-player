@@ -272,6 +272,15 @@ def spotify_playback_action(f):
 def get_audio_devices_linux():
     """Get audio devices on Linux using pactl"""
     try:
+        # Get default sink name first
+        default_result = subprocess.run(['pactl', 'info'],
+                                       capture_output=True, text=True, timeout=5)
+        default_sink = None
+        for line in default_result.stdout.split('\n'):
+            if line.strip().startswith('Default Sink:'):
+                default_sink = line.split(':', 1)[1].strip()
+                break
+
         result = subprocess.run(['pactl', 'list', 'sinks'],
                               capture_output=True, text=True, timeout=5)
 
@@ -287,6 +296,8 @@ def get_audio_devices_linux():
             # New sink starts
             if line.startswith('Sink #'):
                 if current_device:
+                    # Set is_default before appending
+                    current_device['is_default'] = (current_device.get('id') == default_sink)
                     devices.append(current_device)
                 current_device = {}
 
@@ -305,6 +316,7 @@ def get_audio_devices_linux():
 
         # Add last device
         if current_device:
+            current_device['is_default'] = (current_device.get('id') == default_sink)
             devices.append(current_device)
 
         return devices
@@ -1500,6 +1512,22 @@ def get_local_spotify_devices():
         return jsonify({'devices': enriched_devices})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
+# PIN Verification
+# =============================================================================
+
+@app.route('/api/verify-pin', methods=['POST'])
+def verify_pin():
+    """Verify PIN for protected settings tabs"""
+    data = request.get_json()
+    pin = data.get('pin', '')
+    correct_pin = os.getenv('SETTINGS_PIN', '123456')
+
+    if pin == correct_pin:
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Onjuiste PIN'}), 401
 
 
 # =============================================================================

@@ -136,6 +136,11 @@ let primaryColor = '#667eea';
 let secondaryColor = '#764ba2';
 let accentColor = '#eacd66';
 
+// Settings PIN state
+let settingsUnlocked = false;
+let currentPinInput = '';
+let pendingProtectedTab = null;
+
 // Audio device cache
 let cachedAudioDevices = null;
 let cachedAudioDevicesTimestamp = null;
@@ -1567,6 +1572,7 @@ function showSettingsModal() {
 function hideSettingsModal() {
     settingsModal.classList.add('hidden');
     stopDevicePolling(); // Stop polling when modal closes
+    settingsUnlocked = false; // Reset PIN unlock state
 }
 
 // Refresh content (playlists or artists based on current view)
@@ -1583,6 +1589,13 @@ function refreshPlaylists() {
 
 // Tab switching
 function switchTab(tabName) {
+    // Check if protected tab requires PIN
+    const protectedTabs = ['bluetooth', 'other'];
+    if (protectedTabs.includes(tabName) && !settingsUnlocked) {
+        showSettingsPinModal(tabName);
+        return;
+    }
+
     // Remove active class from all tabs and panels
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -1852,10 +1865,11 @@ function createAudioDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'device-item';
     div.setAttribute('data-device-id', device.id);
-    if (device.is_active) div.classList.add('active');
+    const isSelected = device.is_active || device.is_default;
+    if (isSelected) div.classList.add('active');
 
     const icon = getAudioDeviceIcon(device.name);
-    const activeDot = device.is_active ? '<span class="active-dot"></span>' : '';
+    const activeDot = isSelected ? '<span class="active-dot"></span>' : '';
 
     div.innerHTML = `
         <span class="device-icon">${icon}</span>
@@ -2608,6 +2622,127 @@ function setupBluetoothEventListeners() {
         forgetModal.addEventListener('click', (e) => {
             if (e.target === forgetModal) hideForgetModal();
         });
+    }
+}
+
+// =============================================================================
+// Settings PIN Modal
+// =============================================================================
+
+function showSettingsPinModal(targetTab) {
+    pendingProtectedTab = targetTab;
+    currentPinInput = '';
+    updatePinDisplay();
+    hideSettingsPinError();
+
+    const modal = document.getElementById('settings-pin-modal');
+    modal.classList.remove('hidden');
+
+    // Setup keypad event listeners
+    setupSettingsPinKeypad();
+}
+
+function hideSettingsPinModal() {
+    const modal = document.getElementById('settings-pin-modal');
+    modal.classList.add('hidden');
+    currentPinInput = '';
+    pendingProtectedTab = null;
+}
+
+function setupSettingsPinKeypad() {
+    const keypad = document.querySelector('#settings-pin-modal .pin-keypad');
+    const cancelBtn = document.getElementById('btn-cancel-settings-pin');
+
+    // Remove old listeners by cloning
+    const newKeypad = keypad.cloneNode(true);
+    keypad.parentNode.replaceChild(newKeypad, keypad);
+
+    // Add keypad click handler
+    newKeypad.addEventListener('click', (e) => {
+        const key = e.target.closest('.pin-key');
+        if (!key) return;
+
+        const keyValue = key.dataset.key;
+        if (!keyValue) return;
+
+        if (keyValue === 'backspace') {
+            currentPinInput = currentPinInput.slice(0, -1);
+            hideSettingsPinError();
+        } else if (currentPinInput.length < 6) {
+            currentPinInput += keyValue;
+            hideSettingsPinError();
+        }
+
+        updatePinDisplay();
+
+        // Auto-verify when 6 digits entered
+        if (currentPinInput.length === 6) {
+            verifySettingsPin();
+        }
+    });
+
+    // Cancel button
+    if (cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.addEventListener('click', hideSettingsPinModal);
+    }
+
+    // Close on outside click
+    const modal = document.getElementById('settings-pin-modal');
+    modal.onclick = (e) => {
+        if (e.target === modal) hideSettingsPinModal();
+    };
+}
+
+function updatePinDisplay() {
+    const dots = document.querySelectorAll('#settings-pin-modal .pin-dot');
+    dots.forEach((dot, index) => {
+        if (index < currentPinInput.length) {
+            dot.classList.add('filled');
+        } else {
+            dot.classList.remove('filled');
+        }
+    });
+}
+
+function showSettingsPinError() {
+    const error = document.getElementById('settings-pin-error');
+    error.classList.remove('hidden');
+}
+
+function hideSettingsPinError() {
+    const error = document.getElementById('settings-pin-error');
+    error.classList.add('hidden');
+}
+
+async function verifySettingsPin() {
+    try {
+        const response = await fetch('/api/verify-pin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: currentPinInput })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            settingsUnlocked = true;
+            hideSettingsPinModal();
+            // Now switch to the protected tab
+            if (pendingProtectedTab) {
+                switchTab(pendingProtectedTab);
+            }
+        } else {
+            showSettingsPinError();
+            currentPinInput = '';
+            updatePinDisplay();
+        }
+    } catch (error) {
+        console.error('Error verifying PIN:', error);
+        showSettingsPinError();
+        currentPinInput = '';
+        updatePinDisplay();
     }
 }
 

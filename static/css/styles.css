@@ -1753,3 +1753,113 @@ svg.icon {
 .btn-primary:hover {
     opacity: 0.9;
 }
+
+/* =============================================================================
+   Settings PIN Modal
+   ============================================================================= */
+
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.pin-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--primary-color);
+    background: transparent;
+    transition: background-color 0.15s ease;
+}
+
+.pin-dot.filled {
+    background: var(--primary-color);
+}
+
+.pin-error {
+    color: #dc3545;
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 14px;
+    min-height: 20px;
+}
+
+.pin-error.hidden {
+    visibility: hidden;
+}
+
+.pin-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-width: 280px;
+    margin: 0 auto 20px;
+}
+
+.pin-key {
+    width: 80px;
+    height: 60px;
+    border: none;
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+
+.pin-key:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: scale(1.05);
+}
+
+.pin-key:active {
+    transform: scale(0.95);
+    background: var(--secondary-color);
+    color: white;
+}
+
+.pin-key-empty {
+    visibility: hidden;
+}
+
+.pin-key-backspace {
+    background: #f8f9fa;
+}
+
+.pin-key-backspace svg {
+    width: 28px;
+    height: 28px;
+}
+
+body[data-theme="dark"] .pin-key {
+    background: #3a3a4a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme="dark"] .pin-key-backspace {
+    background: #4a4a5a;
+}
+
+body[data-theme="dark"] .pin-key:hover {
+    background: var(--primary-color);
+}
+
+#settings-pin-modal .modal-content {
+    max-width: 340px;
+}
+
+#settings-pin-modal h2 {
+    text-align: center;
+    margin-bottom: 10px;
+}

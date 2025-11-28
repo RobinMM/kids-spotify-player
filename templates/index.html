@@ -368,6 +368,43 @@
         </div>
     </div>
 
+    <!-- Settings PIN Modal -->
+    <div id="settings-pin-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <h2>PIN vereist</h2>
+            <div class="pin-display">
+                <span class="pin-dot"></span>
+                <span class="pin-dot"></span>
+                <span class="pin-dot"></span>
+                <span class="pin-dot"></span>
+                <span class="pin-dot"></span>
+                <span class="pin-dot"></span>
+            </div>
+            <div id="settings-pin-error" class="pin-error hidden">Onjuiste PIN</div>
+            <div class="pin-keypad">
+                <button class="pin-key" data-key="1">1</button>
+                <button class="pin-key" data-key="2">2</button>
+                <button class="pin-key" data-key="3">3</button>
+                <button class="pin-key" data-key="4">4</button>
+                <button class="pin-key" data-key="5">5</button>
+                <button class="pin-key" data-key="6">6</button>
+                <button class="pin-key" data-key="7">7</button>
+                <button class="pin-key" data-key="8">8</button>
+                <button class="pin-key" data-key="9">9</button>
+                <button class="pin-key pin-key-empty"></button>
+                <button class="pin-key" data-key="0">0</button>
+                <button class="pin-key pin-key-backspace" data-key="backspace">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
+                        <path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-buttons">
+                <button id="btn-cancel-settings-pin" class="btn-modal btn-cancel">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

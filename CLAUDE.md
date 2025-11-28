@@ -267,9 +267,18 @@ sudo systemctl disable raspotify
 
 **Service configuratie:** `/home/robin/.config/systemd/user/librespot.service`
 
-### Future Features (not yet implemented)
-- Shutdown functionality (UI ready with 3-second press protection)
-- Requires `sudo` permissions for shutdown
+**Boot-stabiliteit:**
+- Service wacht op `pipewire.service` EN `pipewire-pulse.service` (PulseAudio compatibiliteitslaag)
+- `RestartSec=3` voorkomt snelle crash-loops bij boot
+- `Wants=pipewire-pulse.service` zorgt dat pulse service gestart wordt indien nodig
+
+### System Control (Shutdown/Reboot)
+
+Werkende shutdown en reboot functionaliteit:
+- `/api/system/shutdown` - Schakelt Pi uit via `sudo poweroff`
+- `/api/system/reboot` - Herstart Pi via `sudo reboot`
+- Beide knoppen hebben 3-seconde long-press beveiliging
+- Bevestigingsmodal voorkomt per ongeluk activeren
 
 ### Bluetooth Device Management
 
@@ -306,3 +315,34 @@ sudo systemctl disable raspotify
 22. **pexpect voor PIN:** Fallback naar simple subprocess als pexpect niet beschikbaar. Meeste audio devices gebruiken geen PIN.
 23. **Device states:** `scanning`, `pairing`, `connecting` states voor UI feedback met spinners.
 24. **Trust na pair:** `bluetoothctl trust` wordt automatisch uitgevoerd na succesvolle pairing voor auto-reconnect support.
+
+### Settings PIN Beveiliging
+
+Bluetooth en Overig tabs zijn beveiligd met een 6-cijferige PIN code.
+
+**Configuratie:**
+- `SETTINGS_PIN` environment variable in `.env` (standaard: `123456`)
+- PIN verificatie via `/api/verify-pin` endpoint
+
+**Gedrag:**
+- Bij klikken op Bluetooth of Overig tab verschijnt PIN modal
+- Touch-vriendelijke numpad voor invoer
+- Auto-verify na 6 cijfers ingevoerd
+- Eenmaal ontgrendeld: sessie blijft actief tot settings modal gesloten wordt
+- State: `settingsUnlocked` boolean in frontend
+
+**Implementatie details:**
+25. **PIN modal:** Separate modal met 6 dots display en 3x4 numpad grid
+26. **Protected tabs:** Array `['bluetooth', 'other']` in `switchTab()` functie
+27. **Session reset:** `settingsUnlocked = false` in `hideSettingsModal()`
+
+### Audio Device Indicator
+
+**Default sink detectie:**
+- Backend haalt default sink op via `pactl info | grep "Default Sink"`
+- Elk audio device krijgt `is_default` boolean veld
+- Frontend toont groene stip voor default OF actief device
+
+**Implementatie:**
+28. **is_default veld:** Toegevoegd aan `get_audio_devices_linux()` response
+29. **Visuele indicator:** `const isSelected = device.is_active || device.is_default` bepaalt `.active` class
