@@ -1061,11 +1061,6 @@ svg.icon {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 230px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    overscroll-behavior-y: contain;
     -webkit-user-select: none;
     user-select: none;
 }
@@ -1457,6 +1452,43 @@ svg.icon {
     animation: pulse 0.5s infinite;
 }
 
+.btn-reboot {
+    background: linear-gradient(135deg, #ffa502 0%, #ff7f00 100%);
+    color: white;
+    border: none;
+    border-radius: 15px;
+    padding: 20px 30px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn-reboot svg.icon {
+    width: 24px;
+    height: 24px;
+}
+
+.btn-reboot:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.btn-reboot:active {
+    transform: translateY(0);
+}
+
+.btn-reboot.holding {
+    background: linear-gradient(135deg, #ff8800 0%, #e67300 100%);
+    animation: pulse 0.5s infinite;
+}
+
 .btn-shutdown {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
     color: white;
@@ -1524,6 +1556,15 @@ svg.icon {
 
 .btn-danger:hover {
     background: #c23616;
+}
+
+.btn-warning {
+    background: #ffa502;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #e69500;
 }
 
 .btn-cancel {

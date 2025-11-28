@@ -30,8 +30,12 @@ function enableDragScroll() {
   // Click handler in capture phase to block clicks after drag
   document.addEventListener('click', (e) => {
     if (hasDragged) {
-      e.stopPropagation();
-      e.preventDefault();
+      // Sta clicks op buttons en interactieve elementen toe
+      const isInteractive = e.target.closest('button, a, input, .control-btn, .playlist-item, .track-item, .artist-item, .album-item, .device-item');
+      if (!isInteractive) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
       hasDragged = false;
     }
   }, true);
@@ -423,13 +427,16 @@ const nextBtn = document.getElementById('btn-next');
 const shuffleBtn = document.getElementById('btn-shuffle');
 const refreshPlaylistsBtn = document.getElementById('btn-refresh-playlists');
 const shutdownBtn = document.getElementById('btn-shutdown');
+const rebootBtn = document.getElementById('btn-reboot');
 const logoutBtn = document.getElementById('btn-logout');
 const shutdownModal = document.getElementById('shutdown-modal');
 const confirmShutdownBtn = document.getElementById('btn-confirm-shutdown');
 const cancelShutdownBtn = document.getElementById('btn-cancel-shutdown');
+const rebootModal = document.getElementById('reboot-modal');
+const confirmRebootBtn = document.getElementById('btn-confirm-reboot');
+const cancelRebootBtn = document.getElementById('btn-cancel-reboot');
 const openSettingsBtn = document.getElementById('btn-open-settings');
 const settingsModal = document.getElementById('settings-modal');
-const refreshAudioDevicesBtn = document.getElementById('btn-refresh-audio-devices');
 const volumeSlider = document.getElementById('volume-slider');
 const volumeIconPath = document.getElementById('volume-icon-path');
 const progressBar = document.getElementById('progress-bar');
@@ -450,6 +457,7 @@ let volumeDebounceTimer = null;
 
 // Long-press helper for buttons with hold-to-activate behavior
 function setupLongPress(button, duration, onComplete) {
+    if (!button) return;
     let holdDuration = 0;
     let holdInterval = null;
 
@@ -537,9 +545,6 @@ function setupEventListeners() {
     // Refresh playlists button
     refreshPlaylistsBtn.addEventListener('click', refreshPlaylists);
 
-    // Refresh audio devices button
-    refreshAudioDevicesBtn.addEventListener('click', refreshAudioDevices);
-
     // Volume slider
     volumeSlider.addEventListener('input', handleVolumeChange);
     volumeSlider.addEventListener('mousedown', () => { isVolumeAdjusting = true; });
@@ -553,12 +558,15 @@ function setupEventListeners() {
     progressBar.addEventListener('mousedown', startProgressDrag);
     progressBar.addEventListener('touchstart', startProgressDrag, { passive: false });
 
-    // Long-press protection for shutdown and logout
+    // Long-press protection for shutdown, reboot and logout
     setupLongPress(shutdownBtn, 3000, showShutdownModal);
+    setupLongPress(rebootBtn, 3000, showRebootModal);
     setupLongPress(logoutBtn, 3000, performLogout);
 
     confirmShutdownBtn.addEventListener('click', confirmShutdown);
     cancelShutdownBtn.addEventListener('click', hideShutdownModal);
+    confirmRebootBtn.addEventListener('click', confirmReboot);
+    cancelRebootBtn.addEventListener('click', hideRebootModal);
 
     // Settings modal event listeners
     openSettingsBtn.addEventListener('click', showSettingsModal);
@@ -1619,59 +1627,26 @@ function stopDevicePolling() {
     }
 }
 
-// Load devices (both Spotify API and local mDNS discovered)
+// Load Spotify devices
 async function loadDevices() {
     try {
-        // Fetch both Spotify API devices and local mDNS devices in parallel
-        const [spotifyResponse, localResponse] = await Promise.all([
-            fetch('/api/devices'),
-            fetch('/api/spotify-connect/local')
-        ]);
-
-        const spotifyData = await spotifyResponse.json();
-        const localData = await localResponse.json();
+        const response = await fetch('/api/devices');
+        const data = await response.json();
 
         const devicesList = document.getElementById('devices-list');
         devicesList.innerHTML = '';
 
-        const spotifyDevices = spotifyData.devices || [];
-        const localDevices = localData.devices || [];
+        const devices = data.devices || [];
 
-        // Filter out local devices that are already in Spotify API list (by name match)
-        const spotifyDeviceNames = spotifyDevices.map(d => d.name.toLowerCase());
-        const uniqueLocalDevices = localDevices.filter(
-            local => !spotifyDeviceNames.some(name =>
-                name.includes(local.name.toLowerCase()) ||
-                local.name.toLowerCase().includes(name)
-            )
-        );
-
-        if (spotifyDevices.length === 0 && uniqueLocalDevices.length === 0) {
+        if (devices.length === 0) {
             devicesList.innerHTML = '<div class="empty-state">Geen apparaten gevonden</div>';
             return;
         }
 
-        // Show Spotify API devices first (these are active/registered)
-        spotifyDevices.forEach(device => {
+        devices.forEach(device => {
             const deviceDiv = createDeviceElement(device);
             devicesList.appendChild(deviceDiv);
         });
-
-        // Show local mDNS devices (not yet registered with Spotify)
-        if (uniqueLocalDevices.length > 0) {
-            // Add separator if we have Spotify devices too
-            if (spotifyDevices.length > 0) {
-                const separator = document.createElement('div');
-                separator.className = 'device-separator';
-                separator.innerHTML = '<span>Lokale apparaten (niet geactiveerd)</span>';
-                devicesList.appendChild(separator);
-            }
-
-            uniqueLocalDevices.forEach(device => {
-                const deviceDiv = createLocalDeviceElement(device);
-                devicesList.appendChild(deviceDiv);
-            });
-        }
     } catch (error) {
         console.error('Error loading devices:', error);
         document.getElementById('devices-list').innerHTML = '<div class="empty-state">Fout bij laden van apparaten</div>';
@@ -1873,46 +1848,6 @@ async function loadAudioDevices() {
     }
 }
 
-async function refreshAudioDevices() {
-    const audioDevicesList = document.getElementById('audio-devices-list');
-    const refreshBtn = document.getElementById('btn-refresh-audio-devices');
-
-    // Disable button en start spinner
-    refreshBtn.disabled = true;
-    refreshBtn.classList.add('loading');
-
-    try {
-        // Show loading state
-        audioDevicesList.innerHTML = '<div class="loading">Apparaten verversen...</div>';
-
-        // Invalidate frontend cache
-        cachedAudioDevices = null;
-        cachedAudioDevicesTimestamp = null;
-
-        // Call refresh endpoint
-        const response = await fetch('/api/audio/devices/refresh', {
-            method: 'POST'
-        });
-        const data = await response.json();
-
-        // Update cache with fresh data
-        cachedAudioDevices = data;
-        cachedAudioDevicesTimestamp = Date.now();
-
-        renderAudioDevices(audioDevicesList, data, 'Fout bij verversen van audio apparaten');
-        console.log(`Audio devices refreshed: ${data.devices?.length || 0} devices found`);
-        showToast('Audio apparaten vernieuwd', 'info');
-    } catch (error) {
-        console.error('Error refreshing audio devices:', error);
-        audioDevicesList.innerHTML = '<div class="empty-state">Fout bij verversen van audio apparaten</div>';
-        showToast('Fout bij verversen', 'error');
-    } finally {
-        // Re-enable button en stop spinner
-        refreshBtn.disabled = false;
-        refreshBtn.classList.remove('loading');
-    }
-}
-
 function createAudioDeviceElement(device) {
     const div = document.createElement('div');
     div.className = 'device-item';
@@ -2085,17 +2020,46 @@ function hideShutdownModal() {
 
 async function confirmShutdown() {
     try {
-        const response = await fetch('/api/shutdown', { method: 'POST' });
+        const response = await fetch('/api/system/shutdown', { method: 'POST' });
         const data = await response.json();
 
         hideShutdownModal();
 
-        // Show message since it's a placeholder
-        if (data.message) {
-            showToast(data.message, 'info');
+        if (response.ok) {
+            showToast(data.message || 'Systeem wordt uitgeschakeld...', 'info');
+        } else {
+            showToast(data.error || 'Er ging iets mis', 'error');
         }
     } catch (error) {
         console.error('Error shutting down:', error);
+        showToast('Fout bij uitschakelen', 'error');
+    }
+}
+
+// Reboot modal
+function showRebootModal() {
+    rebootModal.classList.remove('hidden');
+}
+
+function hideRebootModal() {
+    rebootModal.classList.add('hidden');
+}
+
+async function confirmReboot() {
+    try {
+        const response = await fetch('/api/system/reboot', { method: 'POST' });
+        const data = await response.json();
+
+        hideRebootModal();
+
+        if (response.ok) {
+            showToast(data.message || 'Systeem wordt herstart...', 'info');
+        } else {
+            showToast(data.error || 'Er ging iets mis', 'error');
+        }
+    } catch (error) {
+        console.error('Error rebooting:', error);
+        showToast('Fout bij herstarten', 'error');
     }
 }
 
@@ -2646,3 +2610,4 @@ function setupBluetoothEventListeners() {
         });
     }
 }
+

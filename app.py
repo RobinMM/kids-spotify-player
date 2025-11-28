@@ -1406,14 +1406,24 @@ def activate_local_device():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# Raspberry Pi placeholder endpoints (for future implementation)
-@app.route('/api/shutdown', methods=['POST'])
-def shutdown():
-    """Shutdown Raspberry Pi (placeholder)"""
-    # TODO: Implement actual shutdown when running on Pi
-    # subprocess.run(['sudo', 'shutdown', '-h', 'now'])
-    print("Shutdown requested (placeholder - not executing)")
-    return jsonify({'success': True, 'message': 'Shutdown placeholder (not on Pi)'})
+# System control endpoints
+@app.route('/api/system/shutdown', methods=['POST'])
+def system_shutdown():
+    """Shutdown the Raspberry Pi"""
+    try:
+        subprocess.Popen(['sudo', 'poweroff'])
+        return jsonify({'success': True, 'message': 'Systeem wordt uitgeschakeld...'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/reboot', methods=['POST'])
+def system_reboot():
+    """Reboot the Raspberry Pi"""
+    try:
+        subprocess.Popen(['sudo', 'reboot'])
+        return jsonify({'success': True, 'message': 'Systeem wordt herstart...'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/audio/devices')
 def get_audio_devices_endpoint():
