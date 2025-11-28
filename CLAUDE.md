@@ -93,6 +93,40 @@ Single-file Flask application (~644 lines) with these key components:
 - ZeroConf `getInfo` endpoint returns device details (publicKey, deviceId, remoteName)
 - Transfer to local devices via `/api/transfer-playback-local` endpoint
 
+**ZeroConf addUser Protocol (spotify_zeroconf.py):**
+
+Dit is de implementatie voor het activeren van librespot devices via het Spotify Connect ZeroConf protocol. Deze activatie is nodig zodat het device verschijnt in de Spotify Web API.
+
+*Cryptografische parameters (KRITISCH):*
+- **DH Prime:** 768-bit (96 bytes), NIET 1536-bit. Spotify gebruikt een specifieke prime uit librespot's `diffie_hellman.rs`
+- **Base key:** Eerste 16 bytes van SHA1(shared_secret), NIET alle 20 bytes. Dit was de oorzaak van MAC errors
+- **Key derivation:** `base_key = sha1(shared_secret)[:16]`, daarna `checksum_key = HMAC(base_key, "checksum")` en `encryption_key = HMAC(base_key, "encryption")[:16]`
+
+*Credentials blob format (KRITISCH):*
+```
+Tag 0x01 + varint(len) + username (UTF-8)
+Tag 0x02 + 32-bit big-endian auth_type
+Tag 0x03 + varint(len) + auth_data
+```
+
+*Dubbele encryptie structuur:*
+1. **Inner layer (AES-192-ECB):** Credentials blob encrypted met device_id-derived key
+   - Key: `SHA1(PBKDF2(SHA1(device_id), username, 256 iterations)) + big-endian(20)`
+   - PKCS7 padding naar 16-byte boundary
+2. **Outer layer (AES-128-CTR):** Inner blob (base64) encrypted met DH shared secret
+   - Random 16-byte IV
+   - HMAC-SHA1 MAC over encrypted data
+   - Output: `IV + encrypted_data + MAC`
+
+*Credentials:*
+- Gebruikt stored credentials uit `~/.cache/librespot/credentials.json`
+- auth_type = 1 (AUTH_STORED_CREDENTIALS)
+
+*Device ID verschil:*
+- mDNS `deviceId` (uit getInfo) ≠ Spotify API `device_id`
+- Na activatie: fetch `/api/devices` en match op device name
+- Frontend retry logic: 3 pogingen met 2 seconde interval
+
 **Important Implementation Details:**
 - All Spotify API calls use `get_spotify_client()` which handles authentication and token refresh
 - Playlists endpoint uses pagination to fetch ALL user playlists (not just first 50)
@@ -222,6 +256,9 @@ Tab-based interface with 3 tabs and fixed 360px height:
 21. **mDNS discovery:** Uses `zeroconf` library for `_spotify-connect._tcp.local.` service browsing. SpotifyConnectListener class stores devices in `local_spotify_devices` dict. Devices shown in separate "Lokale apparaten (mDNS)" section in settings modal. Local devices have dashed border and mDNS badge.
 22. **Local device transfer:** `/api/transfer-playback-local` endpoint attempts direct `transfer_playback()` with mDNS device_id. If device not registered with Spotify API, returns `needs_activation: true` for ZeroConf addUser flow.
 23. **ZeroConf getInfo:** HTTP GET to `http://{ip}:{port}/?action=getInfo` returns device publicKey, deviceId, remoteName. Used for DH key exchange in addUser flow.
+24. **ZeroConf addUser crypto:** KRITISCH: gebruik 768-bit DH prime (96 bytes) en eerste 16 bytes van SHA1 voor base_key. Dit is gedocumenteerd in de "ZeroConf addUser Protocol" sectie hierboven.
+25. **Session token voor activatie:** `/api/activate-local-device` gebruikt `session.get('token_info')` voor OAuth token, NIET `sp.auth_manager.get_cached_token()` (die bestaat niet op de Spotify client).
+26. **Device matching na activatie:** mDNS deviceId ≠ Spotify API device_id. Na ZeroConf activatie, match device op naam via `/api/devices` endpoint met retry logic (3x, 2s interval).
 
 ## Testing Considerations
 
@@ -251,6 +288,26 @@ cd ~/spotify && git pull origin main && pip install -r requirements-pi.txt --bre
 ### Requirements Files
 - `requirements.txt` - Windows development (inclusief pycaw, comtypes, pywin32)
 - `requirements-pi.txt` - Raspberry Pi / Linux (alleen cross-platform packages)
+
+### Spotify Connect Service (librespot)
+**BELANGRIJK:** Gebruik de librespot **user service**, NIET raspotify (system service).
+
+```bash
+# Correcte service (user)
+systemctl --user start librespot
+systemctl --user status librespot
+
+# Raspotify moet uitgeschakeld zijn
+sudo systemctl stop raspotify
+sudo systemctl disable raspotify
+```
+
+**Waarom user service:**
+- Slaat credentials op in `~/.cache/librespot/credentials.json`
+- Nodig voor ZeroConf addUser protocol (device activatie)
+- Draait onder user context (toegang tot PulseAudio)
+
+**Service configuratie:** `/home/robin/.config/systemd/user/librespot.service`
 
 ### Future Features (not yet implemented)
 - Shutdown functionality (UI ready with 3-second press protection)

@@ -212,6 +212,35 @@ def get_spotify_client():
 
     return spotipy.Spotify(auth=token_info['access_token'])
 
+def find_device_by_name(devices: list, name: str) -> dict:
+    """Find a Spotify device by name with case-insensitive + fuzzy matching.
+
+    Args:
+        devices: List of device dicts from sp.devices()['devices']
+        name: Device name to search for
+
+    Returns:
+        Device dict if found, None otherwise
+    """
+    if not devices or not name:
+        return None
+
+    name_lower = name.lower().strip()
+
+    # Exacte match eerst (case-insensitive)
+    for d in devices:
+        if d.get('name', '').lower().strip() == name_lower:
+            return d
+
+    # Fuzzy match (contains)
+    for d in devices:
+        device_name = d.get('name', '').lower()
+        if name_lower in device_name or device_name in name_lower:
+            return d
+
+    return None
+
+
 def is_device_allowed(sp=None):
     """Check if current active device is in allowed list"""
     device_filter = os.getenv('SPOTIFY_DEVICE_NAME', '').strip()
@@ -992,46 +1021,139 @@ def transfer_playback_local():
 def activate_local_device():
     """Activate a local Spotify Connect device via ZeroConf addUser flow.
 
-    This is called when direct transfer fails because the device is not
-    registered with Spotify's servers yet.
+    Improved flow:
+    1. Check Spotify API voor device (op naam)
+       - Gevonden + actief → Direct return (geen actie nodig)
+       - Gevonden + inactief → Direct transfer (geen activatie nodig)
+       - Niet gevonden → Stap 2
+    2. ZeroConf activatie
+    3. Poll API (5x met 1s interval)
+    4. Transfer playback met Spotify device_id
     """
-    if not ZEROCONF_ACTIVATION_AVAILABLE:
-        return jsonify({
-            'error': 'ZeroConf activatie niet beschikbaar (cryptography niet geinstalleerd)'
-        }), 500
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Niet ingelogd bij Spotify'}), 401
 
     data = request.get_json()
     ip = data.get('ip')
     port = data.get('port')
+    device_name = data.get('device_name')  # Voor matching
 
     if not ip or not port:
         return jsonify({'error': 'IP en poort zijn verplicht'}), 400
 
-    try:
-        # Use credentials from librespot cache
-        credentials_path = os.path.expanduser("~/.cache/librespot/credentials.json")
+    if not device_name:
+        return jsonify({'error': 'device_name is verplicht'}), 400
 
+    try:
+        # STAP 1: Check of device al in Spotify API staat
+        print(f"[ZeroConf] Step 1: Checking if '{device_name}' already in Spotify API...")
+        devices_response = sp.devices()
+        existing_device = find_device_by_name(devices_response.get('devices', []), device_name)
+
+        if existing_device:
+            spotify_device_id = existing_device.get('id')
+            is_active = existing_device.get('is_active', False)
+
+            if is_active:
+                # Device gevonden en al actief - geen actie nodig
+                print(f"[ZeroConf] Device '{device_name}' already active, nothing to do")
+                return jsonify({
+                    'success': True,
+                    'message': f'{device_name} is al actief',
+                    'spotify_device_id': spotify_device_id,
+                    'skipped_activation': True
+                })
+            else:
+                # Device gevonden maar inactief - direct transfer (skip activatie)
+                print(f"[ZeroConf] Device '{device_name}' found but inactive, transferring...")
+                try:
+                    sp.transfer_playback(spotify_device_id, force_play=True)
+                    print(f"[ZeroConf] Transfer successful to {device_name}")
+                    return jsonify({
+                        'success': True,
+                        'message': f'Playback overgedragen naar {device_name}',
+                        'spotify_device_id': spotify_device_id,
+                        'skipped_activation': True
+                    })
+                except Exception as e:
+                    print(f"[ZeroConf] Transfer failed, will try activation: {e}")
+                    # Ga door naar activatie als transfer faalt
+
+        # STAP 2: ZeroConf activatie nodig
+        if not ZEROCONF_ACTIVATION_AVAILABLE:
+            return jsonify({
+                'error': 'ZeroConf activatie niet beschikbaar (cryptography niet geinstalleerd)'
+            }), 500
+
+        credentials_path = os.path.expanduser("~/.cache/librespot/credentials.json")
         if not os.path.exists(credentials_path):
             return jsonify({
-                'error': 'Geen credentials gevonden. Activeer eerst via de Spotify app.'
+                'error': 'Geen librespot credentials gevonden. Start librespot eerst handmatig.'
             }), 400
 
-        client = SpotifyZeroConf(credentials_path)
+        print(f"[ZeroConf] Step 2: Activating device via ZeroConf...")
+        client = SpotifyZeroConf(credentials_path=credentials_path)
         result = client.activate_device(ip, int(port))
 
-        return jsonify({
-            'success': True,
-            'status': result.get('status'),
-            'message': result.get('statusString', 'Device geactiveerd')
-        })
-    except FileNotFoundError:
-        return jsonify({
-            'error': 'Credentials bestand niet gevonden. Activeer eerst via de Spotify app.'
-        }), 400
+        if result.get('status') != 101:
+            return jsonify({
+                'success': False,
+                'error': f"Activatie mislukt: {result.get('statusString')}"
+            }), 400
+
+        print(f"[ZeroConf] Activation successful (status 101)")
+
+        # STAP 3: Poll API (5x met 1s interval)
+        print(f"[ZeroConf] Step 3: Polling Spotify API for device...")
+        spotify_device_id = None
+
+        for attempt in range(5):
+            time.sleep(1)
+            print(f"[ZeroConf] Poll attempt {attempt + 1}/5...")
+
+            try:
+                devices_response = sp.devices()
+                found_device = find_device_by_name(devices_response.get('devices', []), device_name)
+
+                if found_device:
+                    spotify_device_id = found_device.get('id')
+                    print(f"[ZeroConf] Found device: {device_name} -> {spotify_device_id}")
+                    break
+            except Exception as e:
+                print(f"[ZeroConf] Error fetching devices: {e}")
+
+        # STAP 4: Transfer playback
+        if spotify_device_id:
+            try:
+                sp.transfer_playback(spotify_device_id, force_play=True)
+                print(f"[ZeroConf] Step 4: Transfer successful to {device_name}")
+                return jsonify({
+                    'success': True,
+                    'message': f'Device geactiveerd en playback overgedragen naar {device_name}',
+                    'spotify_device_id': spotify_device_id
+                })
+            except Exception as e:
+                print(f"[ZeroConf] Transfer failed: {e}")
+                return jsonify({
+                    'success': True,
+                    'message': 'Device geactiveerd, maar transfer mislukt',
+                    'error': str(e),
+                    'spotify_device_id': spotify_device_id
+                })
+        else:
+            return jsonify({
+                'success': True,
+                'message': 'Device geactiveerd, maar niet gevonden in Spotify na 5 pogingen',
+                'warning': 'Probeer handmatig te transferen'
+            })
+
     except ValueError as e:
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
         print(f"[ZeroConf] Activation error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

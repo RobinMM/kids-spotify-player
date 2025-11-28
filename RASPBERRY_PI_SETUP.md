@@ -1,36 +1,58 @@
 # Raspberry Pi Deployment - Copy/Paste Commando's
 
-SSH naar Pi: `ssh pi@<IP_ADRES>`
+SSH naar Pi: `ssh robin@<IP_ADRES>`
 
 ---
 
 ## Stap 1: Git en dependencies installeren
 
 ```bash
-sudo apt update && sudo apt install -y git python3-pip python3-venv curl
+sudo apt update && sudo apt install -y git python3-pip python3-venv curl librespot
 ```
 
-## Stap 2: Raspotify (Spotify Connect) installeren
+## Stap 2: Librespot (Spotify Connect) user service instellen
+
+**BELANGRIJK:** Gebruik de librespot user service, NIET raspotify (system service).
 
 ```bash
-curl -sL https://dtcooper.github.io/raspotify/install.sh | sh
+# User service directory aanmaken
+mkdir -p ~/.config/systemd/user
+
+# Service bestand aanmaken
+cat > ~/.config/systemd/user/librespot.service << 'EOF'
+[Unit]
+Description=Librespot (Spotify Connect)
+After=network.target sound.target
+
+[Service]
+ExecStart=/usr/bin/librespot --name "Raspberry Alpha" --bitrate 320 --backend pulseaudio --device-type speaker --cache /home/%u/.cache/librespot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Service activeren en starten
+systemctl --user daemon-reload
+systemctl --user enable librespot
+systemctl --user start librespot
 ```
 
-Configuratie aanpassen (optioneel):
+**Pas `--name "Raspberry Alpha"` aan naar de gewenste naam.**
+
+### Raspotify uitschakelen (indien eerder geïnstalleerd)
+
 ```bash
-sudo nano /etc/raspotify/conf
+sudo systemctl stop raspotify 2>/dev/null
+sudo systemctl disable raspotify 2>/dev/null
 ```
 
-Belangrijke opties:
-```
-LIBRESPOT_NAME="Kids Speaker"
-LIBRESPOT_BITRATE="320"
-```
+### Waarom user service?
 
-Herstarten na wijzigingen:
-```bash
-sudo systemctl restart raspotify
-```
+- Slaat credentials op in `~/.cache/librespot/credentials.json`
+- Nodig voor ZeroConf activatie protocol
+- Draait onder user context (toegang tot PulseAudio)
 
 ## Stap 3: GitHub Personal Access Token aanmaken
 
@@ -86,28 +108,35 @@ Open op de Pi zelf in de browser: `http://127.0.0.1:5000`
 
 Log in met je Spotify account (eerste keer moet op de Pi zelf vanwege 127.0.0.1 callback).
 
-## Stap 8: Auto-start service instellen
+## Stap 8: Spotify Player user service instellen
 
 ```bash
-sudo tee /etc/systemd/system/spotify-player.service << 'EOF'
+cat > ~/.config/systemd/user/spotify-player.service << 'EOF'
 [Unit]
 Description=Kids Spotify Player
-After=network.target
+After=network.target librespot.service
 
 [Service]
-User=pi
-WorkingDirectory=/home/pi/spotify
-Environment=PATH=/home/pi/spotify/venv/bin
-ExecStart=/home/pi/spotify/venv/bin/python app.py
+WorkingDirectory=/home/%u/spotify
+Environment=PATH=/home/%u/spotify/venv/bin
+ExecStart=/home/%u/spotify/venv/bin/python app.py
 Restart=always
+RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
 EOF
+
+systemctl --user daemon-reload
+systemctl --user enable spotify-player
+systemctl --user start spotify-player
 ```
 
+### User services laten draaien na logout
+
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable spotify-player && sudo systemctl start spotify-player
+# Zorgt dat user services blijven draaien zonder actieve login
+loginctl enable-linger $USER
 ```
 
 ## Stap 9: Kiosk mode (optioneel)
@@ -120,68 +149,70 @@ chromium --kiosk http://127.0.0.1:5000
 **Auto-start kiosk bij boot:**
 ```bash
 mkdir -p ~/.config/autostart
-nano ~/.config/autostart/kiosk.desktop
-```
-
-Plak dit:
-```
+cat > ~/.config/autostart/kiosk.desktop << 'EOF'
 [Desktop Entry]
 Type=Application
 Name=Spotify Kiosk
 Exec=chromium --kiosk --noerrdialogs --disable-infobars http://127.0.0.1:5000
 X-GNOME-Autostart-enabled=true
+EOF
 ```
-
-Opslaan: `Ctrl+O`, `Enter`, `Ctrl+X`
 
 ---
 
 ## Handige commando's
 
 ```bash
-# Status bekijken
-sudo systemctl status spotify-player
+# Librespot status/logs
+systemctl --user status librespot
+journalctl --user -u librespot -f
 
-# Logs bekijken
-sudo journalctl -u spotify-player -f
+# Spotify Player status/logs
+systemctl --user status spotify-player
+journalctl --user -u spotify-player -f
 
-# Herstarten na update
-cd ~/spotify && git pull && pip install -r requirements-pi.txt && sudo systemctl restart spotify-player
+# Services herstarten
+systemctl --user restart librespot
+systemctl --user restart spotify-player
+
+# Na git pull: update en herstart
+cd ~/spotify && git pull && source venv/bin/activate && pip install -r requirements-pi.txt && systemctl --user restart spotify-player
 
 # Kiosk afsluiten
 Alt+F4 of Ctrl+W
 ```
 
-## App handmatig draaien (zonder service)
+## Deploy commando (snelle update)
 
-**Op voorgrond (blokkeert terminal):**
 ```bash
-cd ~/spotify && source venv/bin/activate && python app.py
-```
-Stop met: `Ctrl+C`
-
-**Op achtergrond (terminal blijft vrij):**
-```bash
-cd ~/spotify && source venv/bin/activate && nohup python app.py > app.log 2>&1 &
-```
-
-Logs bekijken:
-```bash
-tail -f ~/spotify/app.log
-```
-
-App stoppen:
-```bash
-pkill -f "python app.py"
+cd ~/spotify && git pull origin main && pip install -r requirements-pi.txt --break-system-packages && systemctl --user restart spotify-player
 ```
 
 ## Troubleshooting
 
+**"Address already in use" bij librespot:**
+```bash
+# Controleer of raspotify nog draait
+sudo systemctl status raspotify
+# Zo ja, uitschakelen:
+sudo systemctl stop raspotify && sudo systemctl disable raspotify
+```
+
+**Librespot credentials controleren:**
+```bash
+cat ~/.cache/librespot/credentials.json
+# Moet username en auth_data bevatten na eerste Spotify Connect verbinding
+```
+
 **"pactl not found" error:**
-Niet kritiek - audio wordt door Raspotify beheerd. Optioneel installeren:
 ```bash
 sudo apt install pulseaudio pulseaudio-utils
 ```
 
 **pywin32/pycaw error bij pip install:**
 Gebruik `requirements-pi.txt` in plaats van `requirements.txt`
+
+**User services starten niet na reboot:**
+```bash
+loginctl enable-linger $USER
+```

@@ -1641,34 +1641,31 @@ async function activateLocalDevice(device) {
     const displayName = device.remote_name || device.name;
 
     try {
-        // Try ZeroConf activation
+        // Try ZeroConf activation (backend handles device matching and transfer)
         const response = await fetch('/api/devices/local/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ip, port })
+            body: JSON.stringify({ ip, port, device_name: displayName })
         });
 
-        if (response.ok) {
-            showToast(`${displayName} geactiveerd! Even geduld...`, 'info');
+        const data = await response.json();
 
-            // Wait for device to register with Spotify
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Now try transfer playback
-            const transferResponse = await fetch('/api/transfer-playback', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device_id: deviceId })
-            });
-
-            if (transferResponse.ok) {
-                showToast(`Afspelen op ${displayName}`, 'info');
+        if (response.ok && data.success) {
+            // Backend handles activation, device matching, and transfer
+            if (data.spotify_device_id) {
+                // Transfer was successful
+                showToast(data.message || `Afspelen op ${displayName}`, 'info');
+                loadDevices();
+            } else if (data.warning) {
+                // Activation worked but device not found in Spotify
+                showToast(data.message || data.warning, 'error');
                 loadDevices();
             } else {
-                showToast('Device geactiveerd, maar transfer mislukt', 'error');
+                // Activation only (no device_name was passed)
+                showToast(data.message || `${displayName} geactiveerd`, 'info');
+                loadDevices();
             }
         } else {
-            const data = await response.json();
             showToast(data.error || 'Activatie mislukt', 'error');
         }
     } catch (error) {
