@@ -315,6 +315,7 @@ Werkende shutdown en reboot functionaliteit:
 22. **pexpect voor PIN:** Fallback naar simple subprocess als pexpect niet beschikbaar. Meeste audio devices gebruiken geen PIN.
 23. **Device states:** `scanning`, `pairing`, `connecting` states voor UI feedback met spinners.
 24. **Trust na pair:** `bluetoothctl trust` wordt automatisch uitgevoerd na succesvolle pairing voor auto-reconnect support.
+25. **Device naam filtering:** Discovered devices zonder echte naam worden gefilterd (lege naam of naam = MAC-adres met `:` of `-` separators). Paired devices worden nooit gefilterd.
 
 ### Settings PIN Beveiliging
 

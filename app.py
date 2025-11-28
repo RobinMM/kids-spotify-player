@@ -442,6 +442,12 @@ class BluetoothManager:
         devices = []
         for addr, name in all_addrs.items():
             if addr not in paired:
+                # Filter devices zonder echte naam (lege naam of naam = MAC-adres)
+                # MAC kan met : of - separators zijn (bv. AA:BB:CC of AA-BB-CC)
+                name_normalized = name.upper().replace('-', ':')
+                if not name or name.strip() == '' or name_normalized == addr.upper():
+                    continue
+
                 devices.append({
                     'address': addr,
                     'name': name,
