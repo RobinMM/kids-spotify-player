@@ -71,10 +71,8 @@ git clone https://<JOUW_TOKEN>@github.com/robin-eurostocks/kids-spotify-player.g
 ## Stap 5: Python environment opzetten
 
 ```bash
-cd ~/spotify && python3 -m venv venv && source venv/bin/activate && pip install -r requirements-pi.txt
+cd ~/spotify && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 ```
-
-**Let op:** Gebruik `requirements-pi.txt` (niet `requirements.txt` - die bevat Windows-only packages)
 
 ## Stap 6: .env bestand aanmaken
 
@@ -176,7 +174,7 @@ systemctl --user restart librespot
 systemctl --user restart spotify-player
 
 # Na git pull: update en herstart
-cd ~/spotify && git pull && source venv/bin/activate && pip install -r requirements-pi.txt && systemctl --user restart spotify-player
+cd ~/spotify && git pull && source venv/bin/activate && pip install -r requirements.txt && systemctl --user restart spotify-player
 
 # Kiosk afsluiten
 Alt+F4 of Ctrl+W
@@ -185,7 +183,7 @@ Alt+F4 of Ctrl+W
 ## Deploy commando (snelle update)
 
 ```bash
-cd ~/spotify && git pull origin main && pip install -r requirements-pi.txt --break-system-packages && systemctl --user restart spotify-player
+cd ~/spotify && git pull origin main && pip install -r requirements.txt --break-system-packages && systemctl --user restart spotify-player
 ```
 
 ## Troubleshooting
@@ -208,9 +206,6 @@ cat ~/.cache/librespot/credentials.json
 ```bash
 sudo apt install pulseaudio pulseaudio-utils
 ```
-
-**pywin32/pycaw error bij pip install:**
-Gebruik `requirements-pi.txt` in plaats van `requirements.txt`
 
 **User services starten niet na reboot:**
 ```bash

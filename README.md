@@ -1,6 +1,6 @@
 # Kids Spotify Player
 
-Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen voor gebruik op een Raspberry Pi met touchscreen, maar ook bruikbaar op Windows/Linux voor ontwikkeling.
+Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen voor gebruik op een Raspberry Pi met touchscreen.
 
 ## Features
 
@@ -11,7 +11,8 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 - Dark/Light theme met aanpasbare kleuren
 - Spotify apparaat selectie met live status
 - Lokale Spotify Connect devices via mDNS discovery (librespot/Raspotify)
-- Audio output device selectie (Windows/Linux)
+- Audio output device selectie
+- Bluetooth device pairing en connectie
 - Kindvriendelijke interface met grote knoppen
 - Apparaat beveiliging (alleen toegestane devices kunnen bedienen)
 
@@ -55,14 +56,7 @@ FLASK_SECRET_KEY=random_string
 SPOTIFY_DEVICE_NAME=DESKTOP-16R31VC,RaspberryPi
 ```
 
-### 4. Windows Audio Device Switching (Optioneel)
-
-```powershell
-# PowerShell als Administrator
-Install-Module -Name AudioDeviceCmdlets -Force -Scope CurrentUser
-```
-
-### 5. Starten
+### 4. Starten
 
 ```bash
 python app.py
@@ -94,7 +88,6 @@ Klik op de instellingenknop (drie puntjes) voor:
 | "No active device" | Open Spotify app en start muziek |
 | "Bediening niet toegestaan" | Voeg device toe aan `SPOTIFY_DEVICE_NAME` in `.env` |
 | Playback werkt niet | Spotify Premium vereist |
-| Audio switch werkt niet (Windows) | Installeer AudioDeviceCmdlets module |
 
 ## Licentie
 

@@ -3,13 +3,22 @@ from functools import wraps
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import os
-import platform
 import subprocess
 import glob
+import json
+import re
 from dotenv import load_dotenv
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 import time
 import requests
+
+# Bluetooth support
+try:
+    import pexpect
+    PEXPECT_AVAILABLE = True
+except ImportError:
+    PEXPECT_AVAILABLE = False
+    print("Warning: pexpect not available - Bluetooth pairing with PIN disabled")
 
 # mDNS/Zeroconf for local Spotify Connect discovery
 from zeroconf import ServiceBrowser, ServiceListener, Zeroconf
@@ -22,40 +31,11 @@ except ImportError:
     ZEROCONF_ACTIVATION_AVAILABLE = False
     print("Warning: spotify_zeroconf not available - local device activation disabled")
 
-# WSL detection helper
-def is_wsl():
-    """Check if running in Windows Subsystem for Linux"""
-    if os.environ.get('WSL_DISTRO_NAME'):
-        return True
-    try:
-        with open('/proc/version', 'r') as f:
-            return 'microsoft' in f.read().lower()
-    except:
-        return False
-
-# Import Windows audio library if on Windows or WSL
-if platform.system() == 'Windows' or is_wsl():
-    try:
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume, AudioDeviceState, EDataFlow
-        from comtypes import CLSCTX_ALL
-        import pythoncom
-        PYCAW_AVAILABLE = True
-    except ImportError as e:
-        PYCAW_AVAILABLE = False
-        print(f"Warning: pycaw not available. Error: {e}")
-        print("Install with: pip install pycaw comtypes")
-else:
-    PYCAW_AVAILABLE = False
-
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
-
-# Audio device cache (no TTL - refresh only on manual button click)
-_audio_devices_cache = None
-_cache_lock = Lock()
 
 # Spotify Connect mDNS discovery
 _spotify_connect_devices = {}
@@ -332,172 +312,441 @@ def get_audio_devices_linux():
         print(f"Error getting Linux audio devices: {e}")
         return []
 
-def get_audio_devices_windows():
-    """Get audio devices on Windows using pycaw"""
-    if not PYCAW_AVAILABLE:
-        return []
-
-    try:
-        # Initialize COM for this thread
-        pythoncom.CoInitialize()
-
-        devices = []
-
-        # Get default device ID using AudioUtilities.GetSpeakers()
-        default_device = None
-        default_id = None
-        try:
-            default_device = AudioUtilities.GetSpeakers()
-            if default_device:
-                default_id = default_device.id
-        except Exception as e:
-            if app.debug:
-                print(f"Error getting default device: {e}")
-
-        # Enumerate devices only once - filter for output devices only (eRender)
-        audio_devices = AudioUtilities.GetAllDevices(data_flow=EDataFlow.eRender.value)
-        for device in audio_devices:
-            # Check if device is active using the enum
-            if device.state == AudioDeviceState.Active:
-                device_id = device.id
-                devices.append({
-                    'id': device_id,
-                    'name': device.FriendlyName,
-                    'is_active': (device_id == default_id)
-                })
-
-        return devices
-    except Exception as e:
-        print(f"Error getting Windows audio devices: {e}")
-        import traceback
-        traceback.print_exc()
-        return []
-    finally:
-        # Always uninitialize COM
-        try:
-            pythoncom.CoUninitialize()
-        except:
-            pass
-
 def get_audio_devices():
-    """Get audio devices for current platform"""
+    """Get audio output devices using pactl"""
     start_time = time.time()
-
-    # Use Windows code path if on Windows or WSL
-    if platform.system() == 'Windows' or is_wsl():
-        devices = get_audio_devices_windows()
-    elif platform.system() == 'Linux':
-        devices = get_audio_devices_linux()
-    else:
-        print(f"Unsupported platform: {platform.system()}")
-        devices = []
-
+    devices = get_audio_devices_linux()
     elapsed = time.time() - start_time
     print(f"get_audio_devices() took {elapsed:.2f}s, found {len(devices)} devices")
     return devices
 
-def get_audio_devices_cached():
-    """Get audio devices with server-side caching (no TTL)"""
-    global _audio_devices_cache
-
-    with _cache_lock:
-        # Return from cache if available
-        if _audio_devices_cache is not None:
-            print("Serving audio devices from cache (instant)")
-            return _audio_devices_cache
-
-        # Cache miss - enumerate devices
-        print("Cache miss - enumerating audio devices...")
-        devices = get_audio_devices()
-        _audio_devices_cache = devices
-        print(f"Audio devices cached ({len(devices)} devices)")
-        return devices
-
-def invalidate_audio_devices_cache():
-    """Invalidate the audio devices cache"""
-    global _audio_devices_cache
-
-    with _cache_lock:
-        _audio_devices_cache = None
-        print("Audio devices cache invalidated")
-
-def set_audio_device_linux(device_id):
-    """Set audio device on Linux using pactl"""
+def set_audio_device(device_id):
+    """Set audio output device using pactl"""
     try:
         result = subprocess.run(['pactl', 'set-default-sink', device_id],
                               capture_output=True, text=True, timeout=5)
         return result.returncode == 0
     except Exception as e:
-        print(f"Error setting Linux audio device: {e}")
+        print(f"Error setting audio device: {e}")
         return False
 
-def check_audiodevicecmdlets_installed():
-    """Check if AudioDeviceCmdlets PowerShell module is available"""
-    try:
-        result = subprocess.run(
-            ['powershell', '-NoProfile', '-Command',
-             'Get-Module -ListAvailable -Name AudioDeviceCmdlets | ConvertTo-Json'],
-            capture_output=True,
-            text=True,
-            timeout=5
+
+# =============================================================================
+# Bluetooth Device Manager
+# =============================================================================
+
+class BluetoothManager:
+    """Manager for Bluetooth device pairing and connection via bluetoothctl"""
+
+    def __init__(self):
+        self._scanning = False
+        self._scan_thread = None
+        self._scan_stop_event = Event()
+        self._discovered_devices = {}
+        self._lock = Lock()
+        self._last_device_file = os.path.expanduser('~/.config/spotify-player/last_bt_device.json')
+
+    def _run_bluetoothctl(self, commands, timeout=10):
+        """Execute bluetoothctl commands via subprocess"""
+        try:
+            input_str = '\n'.join(commands) + '\nexit\n'
+            result = subprocess.run(
+                ['bluetoothctl'],
+                input=input_str,
+                capture_output=True,
+                text=True,
+                timeout=timeout
+            )
+            return result.stdout, result.stderr, result.returncode
+        except subprocess.TimeoutExpired:
+            return None, "Timeout", -1
+        except FileNotFoundError:
+            return None, "bluetoothctl niet gevonden", -1
+        except Exception as e:
+            return None, str(e), -1
+
+    def _parse_devices(self, output):
+        """Parse 'Device AA:BB:CC:DD:EE:FF Name' format from bluetoothctl"""
+        devices = {}
+        if not output:
+            return devices
+        for line in output.strip().split('\n'):
+            match = re.match(r'Device ([0-9A-Fa-f:]{17})\s+(.+)', line.strip())
+            if match:
+                addr, name = match.groups()
+                devices[addr.upper()] = name.strip()
+        return devices
+
+    def _get_device_info(self, address):
+        """Get detailed info for a specific device"""
+        stdout, _, _ = self._run_bluetoothctl([f'info {address}'], timeout=5)
+        info = {'address': address}
+        if stdout:
+            for line in stdout.split('\n'):
+                line = line.strip()
+                if line.startswith('Name:'):
+                    info['name'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Connected:'):
+                    info['connected'] = 'yes' in line.lower()
+                elif line.startswith('Paired:'):
+                    info['paired'] = 'yes' in line.lower()
+                elif line.startswith('Trusted:'):
+                    info['trusted'] = 'yes' in line.lower()
+                elif line.startswith('Icon:'):
+                    info['icon'] = line.split(':', 1)[1].strip()
+        return info
+
+    def get_paired_devices(self):
+        """Get list of paired Bluetooth devices"""
+        stdout, stderr, rc = self._run_bluetoothctl(['devices Paired'], timeout=5)
+        if rc != 0 or not stdout:
+            print(f"[BT] Error getting paired devices: {stderr}")
+            return []
+
+        paired_addrs = self._parse_devices(stdout)
+        devices = []
+
+        for addr, name in paired_addrs.items():
+            info = self._get_device_info(addr)
+            devices.append({
+                'address': addr,
+                'name': info.get('name', name),
+                'connected': info.get('connected', False),
+                'paired': True,
+                'trusted': info.get('trusted', False),
+                'icon': info.get('icon', '')
+            })
+
+        return devices
+
+    def get_discovered_devices(self):
+        """Get list of discovered (not paired) devices"""
+        stdout, _, _ = self._run_bluetoothctl(['devices'], timeout=5)
+        all_addrs = self._parse_devices(stdout) if stdout else {}
+
+        # Get paired addresses to exclude
+        paired = {d['address'] for d in self.get_paired_devices()}
+
+        devices = []
+        for addr, name in all_addrs.items():
+            if addr not in paired:
+                devices.append({
+                    'address': addr,
+                    'name': name,
+                    'connected': False,
+                    'paired': False
+                })
+
+        return devices
+
+    def get_all_devices(self):
+        """Get both paired and discovered devices"""
+        paired = self.get_paired_devices()
+        discovered = self.get_discovered_devices()
+        return {
+            'paired': paired,
+            'discovered': discovered,
+            'scanning': self._scanning
+        }
+
+    def start_scan(self, duration=30):
+        """Start Bluetooth device discovery"""
+        if self._scanning:
+            return False, "Scan al actief"
+
+        self._scanning = True
+        self._scan_stop_event.clear()
+
+        def scan_thread():
+            try:
+                print(f"[BT] Starting scan for {duration} seconds...")
+                # Use --timeout flag to keep scan running
+                # This runs bluetoothctl in foreground with timeout
+                subprocess.run(
+                    ['bluetoothctl', '--timeout', str(duration), 'scan', 'on'],
+                    capture_output=True,
+                    text=True,
+                    timeout=duration + 5
+                )
+                print("[BT] Scan completed")
+            except subprocess.TimeoutExpired:
+                print("[BT] Scan timeout (expected)")
+            except Exception as e:
+                print(f"[BT] Scan error: {e}")
+            finally:
+                self._scanning = False
+                # Ensure scan is stopped
+                subprocess.run(['bluetoothctl', 'scan', 'off'], capture_output=True, timeout=3)
+
+        self._scan_thread = Thread(target=scan_thread, daemon=True)
+        self._scan_thread.start()
+        return True, "Scan gestart"
+
+    def stop_scan(self):
+        """Stop Bluetooth device discovery"""
+        if not self._scanning:
+            return False, "Geen actieve scan"
+
+        self._scan_stop_event.set()
+        self._run_bluetoothctl(['scan off'], timeout=3)
+        self._scanning = False
+        return True, "Scan gestopt"
+
+    def pair_device(self, address, pin=None):
+        """Pair with a Bluetooth device, optionally with PIN"""
+        if not PEXPECT_AVAILABLE:
+            # Fallback: simple subprocess pairing (no PIN support)
+            return self._pair_device_simple(address)
+
+        return self._pair_device_pexpect(address, pin)
+
+    def _pair_device_simple(self, address):
+        """Simple pairing without PIN support"""
+        # First, ensure device is available by running a quick scan
+        # This is needed because discovered devices disappear after scan ends
+        print(f"[BT] Starting discovery for pairing with {address}...")
+
+        # Start scan in background
+        scan_proc = subprocess.Popen(
+            ['bluetoothctl', '--timeout', '15', 'scan', 'on'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
-        return result.returncode == 0 and result.stdout.strip() != ''
-    except Exception as e:
-        print(f"Error checking AudioDeviceCmdlets: {e}")
-        return False
 
-def set_audio_device_windows_powershell(device_id):
-    """Set default audio device using PowerShell AudioDeviceCmdlets"""
-    try:
-        ps_command = f"Import-Module AudioDeviceCmdlets; Set-AudioDevice -ID '{device_id}'"
+        try:
+            # Wait a bit for device to be discovered
+            time.sleep(3)
 
-        result = subprocess.run(
-            ['powershell', '-NoProfile', '-Command', ps_command],
-            capture_output=True,
-            text=True,
-            timeout=5
+            # Now try to pair
+            stdout, stderr, rc = self._run_bluetoothctl([f'pair {address}'], timeout=30)
+
+            if stdout and 'Pairing successful' in stdout:
+                # Auto-trust for reconnection
+                self._run_bluetoothctl([f'trust {address}'], timeout=5)
+                return True, None
+
+            error_msg = stderr or stdout or 'Pairing mislukt'
+            if 'PIN' in error_msg or 'passkey' in error_msg.lower():
+                return False, {'needs_pin': True, 'type': 'numeric'}
+            if 'not available' in error_msg:
+                return False, 'Apparaat niet gevonden. Probeer opnieuw te scannen.'
+
+            return False, error_msg
+        finally:
+            # Stop the scan
+            scan_proc.terminate()
+            subprocess.run(['bluetoothctl', 'scan', 'off'], capture_output=True, timeout=3)
+
+    def _pair_device_pexpect(self, address, pin=None):
+        """Pairing with pexpect for PIN handling"""
+        # First, ensure device is available by running a quick scan
+        print(f"[BT] Starting discovery for pairing with {address}...")
+        scan_proc = subprocess.Popen(
+            ['bluetoothctl', '--timeout', '15', 'scan', 'on'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
 
-        if result.returncode == 0:
-            print(f"Successfully set audio device to: {device_id}")
-            return True
-        else:
-            print(f"PowerShell error: {result.stderr}")
+        try:
+            # Wait a bit for device to be discovered
+            time.sleep(3)
+
+            child = pexpect.spawn('bluetoothctl', timeout=30, encoding='utf-8')
+            child.expect('#')
+            child.sendline(f'pair {address}')
+
+            index = child.expect([
+                'Pairing successful',
+                'Enter PIN code:',
+                'Enter passkey',
+                'Confirm passkey',
+                'Failed to pair',
+                'not available',
+                pexpect.TIMEOUT
+            ], timeout=30)
+
+            if index == 0:  # Success
+                child.sendline('exit')
+                # Auto-trust for reconnection
+                self._run_bluetoothctl([f'trust {address}'], timeout=5)
+                return True, None
+
+            elif index == 1 or index == 2:  # PIN needed
+                if pin:
+                    child.sendline(pin)
+                    result_index = child.expect([
+                        'Pairing successful',
+                        'Failed',
+                        pexpect.TIMEOUT
+                    ], timeout=15)
+                    child.sendline('exit')
+
+                    if result_index == 0:
+                        self._run_bluetoothctl([f'trust {address}'], timeout=5)
+                        return True, None
+                    else:
+                        return False, 'Verkeerde PIN code'
+                else:
+                    child.sendline('exit')
+                    return False, {'needs_pin': True, 'type': 'numeric'}
+
+            elif index == 3:  # Confirm passkey (displayed on device)
+                child.sendline('yes')
+                result_index = child.expect([
+                    'Pairing successful',
+                    'Failed',
+                    pexpect.TIMEOUT
+                ], timeout=15)
+                child.sendline('exit')
+
+                if result_index == 0:
+                    self._run_bluetoothctl([f'trust {address}'], timeout=5)
+                    return True, None
+                else:
+                    return False, 'Bevestiging mislukt'
+
+            elif index == 4 or index == 5:  # Failed
+                child.sendline('exit')
+                return False, 'Pairing geweigerd door apparaat'
+
+            else:  # Timeout
+                child.sendline('exit')
+                return False, 'Timeout bij pairing'
+
+        except Exception as e:
+            print(f"[BT] Pexpect error: {e}")
+            return False, str(e)
+        finally:
+            # Stop the scan
+            scan_proc.terminate()
+            subprocess.run(['bluetoothctl', 'scan', 'off'], capture_output=True, timeout=3)
+
+    def connect_device(self, address):
+        """Connect to a paired Bluetooth device"""
+        try:
+            # Use direct command execution instead of stdin pipe
+            # This waits for the connection to complete
+            result = subprocess.run(
+                ['bluetoothctl', 'connect', address],
+                capture_output=True,
+                text=True,
+                timeout=15
+            )
+            stdout = result.stdout + result.stderr
+
+            if 'Connection successful' in stdout or 'Already connected' in stdout:
+                self._save_last_device(address)
+                # Audio devices will refresh automatically
+                return True, None
+
+            # Give it a moment and verify by checking actual status
+            time.sleep(1)
+            info = self._get_device_info(address)
+            if info.get('connected'):
+                self._save_last_device(address)
+                # Audio devices will refresh automatically
+                return True, None
+
+            return False, 'Verbinden mislukt'
+        except subprocess.TimeoutExpired:
+            return False, 'Timeout bij verbinden'
+        except Exception as e:
+            print(f"[BT] Connect error: {e}")
+            return False, str(e)
+
+    def disconnect_device(self, address):
+        """Disconnect from a Bluetooth device"""
+        stdout, stderr, rc = self._run_bluetoothctl([f'disconnect {address}'], timeout=10)
+
+        if rc == 0 or (stdout and 'Successful' in stdout):
+            # Audio devices will refresh automatically
+            return True, None
+
+        return False, stderr or 'Loskoppelen mislukt'
+
+    def forget_device(self, address):
+        """Remove/unpair a Bluetooth device"""
+        stdout, stderr, rc = self._run_bluetoothctl([f'remove {address}'], timeout=10)
+
+        if rc == 0 or (stdout and 'removed' in stdout.lower()):
+            # Audio devices will refresh automatically
+            return True, None
+
+        return False, stderr or 'Vergeten mislukt'
+
+    def _save_last_device(self, address):
+        """Save last connected device for auto-reconnect"""
+        try:
+            # Get device name
+            info = self._get_device_info(address)
+            name = info.get('name', 'Unknown')
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self._last_device_file), exist_ok=True)
+
+            with open(self._last_device_file, 'w') as f:
+                json.dump({'address': address, 'name': name}, f)
+
+            print(f"[BT] Saved last device: {name} ({address})")
+        except Exception as e:
+            print(f"[BT] Error saving last device: {e}")
+
+    def get_last_device(self):
+        """Get last connected device for auto-reconnect"""
+        try:
+            if os.path.exists(self._last_device_file):
+                with open(self._last_device_file, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"[BT] Error loading last device: {e}")
+        return None
+
+    def auto_reconnect(self):
+        """Try to reconnect to last used Bluetooth device"""
+        last = self.get_last_device()
+        if not last:
+            print("[BT] No last device to reconnect")
             return False
 
-    except subprocess.TimeoutExpired:
-        print("PowerShell command timed out")
-        return False
-    except Exception as e:
-        print(f"Error executing PowerShell: {e}")
-        return False
+        address = last.get('address')
+        name = last.get('name', 'Unknown')
 
-def set_audio_device_windows(device_id):
-    """Set audio device on Windows using PowerShell AudioDeviceCmdlets"""
-    if not PYCAW_AVAILABLE:
-        print("Warning: pycaw not available")
-        return False
+        # Check if device is paired
+        paired = self.get_paired_devices()
+        paired_addresses = {d['address'] for d in paired}
 
-    # Try PowerShell method
-    if set_audio_device_windows_powershell(device_id):
-        return True
+        if address not in paired_addresses:
+            print(f"[BT] Last device {name} not paired anymore")
+            return False
 
-    # PowerShell failed - provide helpful error message
-    print("Failed to switch audio device.")
-    print("Please install AudioDeviceCmdlets PowerShell module:")
-    print("  Run PowerShell as Administrator:")
-    print("  Install-Module -Name AudioDeviceCmdlets -Force")
-    return False
+        # Check if already connected
+        for device in paired:
+            if device['address'] == address and device.get('connected'):
+                print(f"[BT] {name} already connected")
+                return True
 
-def set_audio_device(device_id):
-    """Set audio device for current platform"""
-    # Use Windows code path if on Windows or WSL
-    if platform.system() == 'Windows' or is_wsl():
-        return set_audio_device_windows(device_id)
-    elif platform.system() == 'Linux':
-        return set_audio_device_linux(device_id)
-    else:
-        return False
+        # Try to connect
+        print(f"[BT] Auto-reconnecting to {name}...")
+        success, error = self.connect_device(address)
+
+        if success:
+            print(f"[BT] Auto-reconnected to {name}")
+        else:
+            print(f"[BT] Auto-reconnect failed: {error}")
+
+        return success
+
+
+# Global Bluetooth manager instance
+bluetooth_manager = BluetoothManager()
+
+
+def auto_reconnect_bluetooth_background():
+    """Background thread to auto-reconnect Bluetooth on startup"""
+    time.sleep(5)  # Wait for app startup
+    print("[BT] Starting auto-reconnect check...")
+    bluetooth_manager.auto_reconnect()
+
 
 # Routes
 @app.route('/')
@@ -1170,7 +1419,7 @@ def shutdown():
 def get_audio_devices_endpoint():
     """Get available audio output devices (cached)"""
     try:
-        devices = get_audio_devices_cached()
+        devices = get_audio_devices()
         return jsonify({'devices': devices})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1179,8 +1428,8 @@ def get_audio_devices_endpoint():
 def refresh_audio_devices_endpoint():
     """Manually refresh audio devices cache"""
     try:
-        invalidate_audio_devices_cache()
-        devices = get_audio_devices_cached()
+        # Audio devices will refresh automatically
+        devices = get_audio_devices()
         return jsonify({'devices': devices, 'refreshed': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1199,7 +1448,7 @@ def set_audio_output():
 
         if success:
             # Invalidate cache so frontend gets updated active device status
-            invalidate_audio_devices_cache()
+            # Audio devices will refresh automatically
 
             # Wait for Windows to update the default device (150ms)
             time.sleep(0.15)
@@ -1242,15 +1491,177 @@ def get_local_spotify_devices():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def preload_audio_devices_background():
-    """Preload audio devices cache in background on startup"""
-    time.sleep(2)  # Wait for Flask to start
-    print("\n=== Preloading audio devices cache ===")
+
+# =============================================================================
+# Bluetooth API Endpoints
+# =============================================================================
+
+@app.route('/api/bluetooth/devices')
+def get_bluetooth_devices_endpoint():
+    """Get all Bluetooth devices (paired + discovered)"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
     try:
-        get_audio_devices_cached()
-        print("=== Audio devices cache ready ===\n")
+        data = bluetooth_manager.get_all_devices()
+        return jsonify(data)
     except Exception as e:
-        print(f"=== Cache preload failed (non-critical): {e} ===\n")
+        print(f"[BT] Error getting devices: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/scan', methods=['POST'])
+def bluetooth_scan_endpoint():
+    """Start or stop Bluetooth device scanning"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
+    data = request.get_json() or {}
+    action = data.get('action', 'start')
+    duration = data.get('duration', 30)
+
+    try:
+        if action == 'start':
+            success, message = bluetooth_manager.start_scan(duration)
+        else:
+            success, message = bluetooth_manager.stop_scan()
+
+        return jsonify({
+            'success': success,
+            'message': message,
+            'scanning': bluetooth_manager._scanning
+        })
+    except Exception as e:
+        print(f"[BT] Scan error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/pair', methods=['POST'])
+def bluetooth_pair_endpoint():
+    """Pair with a Bluetooth device"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data:
+        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+
+    address = data['address']
+    pin = data.get('pin')
+
+    try:
+        success, result = bluetooth_manager.pair_device(address, pin)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Apparaat gekoppeld'
+            })
+        elif isinstance(result, dict) and result.get('needs_pin'):
+            return jsonify({
+                'success': False,
+                'needs_pin': True,
+                'pin_type': result.get('type', 'numeric')
+            }), 202
+        else:
+            return jsonify({
+                'success': False,
+                'error': result or 'Koppeling mislukt'
+            }), 400
+    except Exception as e:
+        print(f"[BT] Pair error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/connect', methods=['POST'])
+def bluetooth_connect_endpoint():
+    """Connect to a paired Bluetooth device"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data:
+        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+
+    address = data['address']
+
+    try:
+        success, error = bluetooth_manager.connect_device(address)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Verbonden'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': error or 'Verbinden mislukt'
+            }), 400
+    except Exception as e:
+        print(f"[BT] Connect error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/disconnect', methods=['POST'])
+def bluetooth_disconnect_endpoint():
+    """Disconnect from a Bluetooth device"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data:
+        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+
+    address = data['address']
+
+    try:
+        success, error = bluetooth_manager.disconnect_device(address)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Losgekoppeld'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': error or 'Loskoppelen mislukt'
+            }), 400
+    except Exception as e:
+        print(f"[BT] Disconnect error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/forget', methods=['DELETE'])
+def bluetooth_forget_endpoint():
+    """Remove/unpair a Bluetooth device"""
+    if not bluetooth_manager:
+        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data:
+        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+
+    address = data['address']
+
+    try:
+        success, error = bluetooth_manager.forget_device(address)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Apparaat vergeten'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': error or 'Vergeten mislukt'
+            }), 400
+    except Exception as e:
+        print(f"[BT] Forget error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     # Check if credentials are set
@@ -1259,10 +1670,11 @@ if __name__ == '__main__':
         print("Please copy .env.example to .env and add your credentials")
         print("Get credentials from: https://developer.spotify.com/dashboard")
 
-    # Start background thread to preload audio devices
-    preload_thread = Thread(target=preload_audio_devices_background, daemon=True)
-    preload_thread.start()
-    print("Background audio device cache preload started...")
+    # Start Bluetooth auto-reconnect thread (Linux only)
+    if bluetooth_manager:
+        bt_thread = Thread(target=auto_reconnect_bluetooth_background, daemon=True)
+        bt_thread.start()
+        print("Bluetooth auto-reconnect check scheduled...")
 
     # Start Spotify Connect mDNS discovery
     start_spotify_connect_discovery()

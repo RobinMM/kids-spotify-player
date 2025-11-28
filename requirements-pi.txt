@@ -1,5 +1,0 @@
-Flask==3.0.0
-spotipy==2.23.0
-python-dotenv==1.0.0
-zeroconf==0.136.2
-cryptography>=41.0.0

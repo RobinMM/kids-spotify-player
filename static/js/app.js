@@ -9,6 +9,17 @@ let isShuffleOn = false;
 let currentTrackId = null;
 let devicePollingInterval = null;
 
+// Bluetooth state
+let bluetoothState = {
+    scanning: false,
+    pairedDevices: [],
+    discoveredDevices: [],
+    connectingDevice: null,
+    pairingDevice: null,
+    pendingPinDevice: null
+};
+let bluetoothPollingInterval = null;
+
 // Theme state
 let currentTheme = 'light';
 let primaryColor = '#667eea';
@@ -407,6 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startProgressInterpolation();
     setupEventListeners();
     setupThemeListeners();
+    setupBluetoothEventListeners();
 });
 
 // Setup event listeners
@@ -1469,14 +1481,21 @@ function switchTab(tabName) {
     document.querySelector(`.tab-btn[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(`tab-${tabName}`).classList.add('active');
 
-    // Stop any existing device polling
+    // Stop any existing polling
     stopDevicePolling();
+    stopBluetoothPolling();
 
     // Load devices and audio devices when switching to devices tab
     if (tabName === 'devices') {
         loadDevices();
         loadAudioDevices();
         startDevicePolling();
+    }
+
+    // Load Bluetooth devices when switching to bluetooth tab
+    if (tabName === 'bluetooth') {
+        loadBluetoothDevices();
+        startBluetoothPolling();
     }
 }
 
@@ -2055,4 +2074,469 @@ function setupThemeListeners() {
             applyPreset(theme, primary, secondary, accent);
         });
     });
+}
+
+// =============================================================================
+// Bluetooth Management
+// =============================================================================
+
+async function loadBluetoothDevices() {
+    try {
+        const response = await fetch('/api/bluetooth/devices');
+        const data = await response.json();
+
+        if (data.error) {
+            // Bluetooth not available (e.g., on Windows)
+            document.getElementById('bt-paired-list').innerHTML =
+                '<div class="empty-state">Bluetooth niet beschikbaar</div>';
+            document.getElementById('bt-discovered-section').style.display = 'none';
+            return;
+        }
+
+        bluetoothState.pairedDevices = data.paired || [];
+        bluetoothState.discoveredDevices = data.discovered || [];
+        bluetoothState.scanning = data.scanning || false;
+
+        renderBluetoothDevices();
+        updateBluetoothScanButton();
+    } catch (error) {
+        console.error('Error loading Bluetooth devices:', error);
+        document.getElementById('bt-paired-list').innerHTML =
+            '<div class="empty-state">Fout bij laden</div>';
+    }
+}
+
+function renderBluetoothDevices() {
+    const pairedList = document.getElementById('bt-paired-list');
+    const discoveredSection = document.getElementById('bt-discovered-section');
+    const discoveredList = document.getElementById('bt-discovered-list');
+
+    // Render paired devices
+    if (bluetoothState.pairedDevices.length === 0) {
+        pairedList.innerHTML = '<div class="empty-state">Geen gekoppelde apparaten</div>';
+    } else {
+        pairedList.innerHTML = '';
+        bluetoothState.pairedDevices.forEach(device => {
+            pairedList.appendChild(createBluetoothDeviceElement(device, true));
+        });
+    }
+
+    // Render discovered devices
+    if (bluetoothState.discoveredDevices.length > 0 || bluetoothState.scanning) {
+        discoveredSection.style.display = 'block';
+        if (bluetoothState.discoveredDevices.length === 0) {
+            discoveredList.innerHTML = bluetoothState.scanning
+                ? '<div class="loading">Zoeken naar apparaten...</div>'
+                : '<div class="empty-state">Geen apparaten gevonden</div>';
+        } else {
+            discoveredList.innerHTML = '';
+            bluetoothState.discoveredDevices.forEach(device => {
+                discoveredList.appendChild(createBluetoothDeviceElement(device, false));
+            });
+        }
+    } else {
+        discoveredSection.style.display = 'none';
+    }
+}
+
+function createBluetoothDeviceElement(device, isPaired) {
+    const div = document.createElement('div');
+    div.className = 'device-item bt-device';
+    div.setAttribute('data-bt-address', device.address);
+
+    // State-based classes
+    if (device.connected) div.classList.add('active');
+    if (device.address === bluetoothState.connectingDevice) div.classList.add('connecting');
+    if (device.address === bluetoothState.pairingDevice) div.classList.add('pairing');
+    if (!isPaired) div.classList.add('discovered');
+
+    const icon = getBluetoothDeviceIcon(device);
+    const statusText = getBluetoothDeviceStatus(device, isPaired);
+    const activeDot = device.connected ? '<span class="active-dot"></span>' : '';
+
+    // Spinner for connecting/pairing
+    let spinner = '';
+    if (device.address === bluetoothState.connectingDevice ||
+        device.address === bluetoothState.pairingDevice) {
+        spinner = `<span class="device-loading-spinner">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+        </span>`;
+    }
+
+    // Forget button for paired devices
+    const forgetBtn = isPaired ? `
+        <button class="btn-forget" data-address="${device.address}" title="Vergeten">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+            </svg>
+        </button>
+    ` : '';
+
+    div.innerHTML = `
+        <span class="device-icon">${icon}</span>
+        <div class="device-info">
+            <div class="device-name">${escapeHtml(device.name || 'Onbekend apparaat')}</div>
+            <div class="device-status">${statusText}</div>
+        </div>
+        ${spinner}
+        ${activeDot}
+        ${forgetBtn}
+    `;
+
+    // Click handler for device body
+    div.onclick = (e) => {
+        // Ignore clicks on forget button
+        if (e.target.closest('.btn-forget')) {
+            e.stopPropagation();
+            showForgetModal(device);
+            return;
+        }
+        handleBluetoothDeviceClick(device, isPaired);
+    };
+
+    return div;
+}
+
+function getBluetoothDeviceIcon(device) {
+    const iconType = (device.icon || '').toLowerCase();
+
+    // Headphones icon
+    if (iconType.includes('audio-headset') || iconType.includes('audio-headphones')) {
+        return '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/></svg>';
+    }
+
+    // Default: Bluetooth icon
+    return '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg>';
+}
+
+function getBluetoothDeviceStatus(device, isPaired) {
+    if (device.address === bluetoothState.connectingDevice) return 'Verbinden...';
+    if (device.address === bluetoothState.pairingDevice) return 'Koppelen...';
+    if (device.connected) return 'Verbonden';
+    if (isPaired) return 'Niet verbonden';
+    return 'Beschikbaar';
+}
+
+async function handleBluetoothDeviceClick(device, isPaired) {
+    // Prevent double clicks while processing
+    if (bluetoothState.connectingDevice || bluetoothState.pairingDevice) {
+        return;
+    }
+
+    if (device.connected) {
+        await disconnectBluetoothDevice(device.address);
+    } else if (isPaired) {
+        await connectBluetoothDevice(device.address);
+    } else {
+        await pairBluetoothDevice(device.address);
+    }
+}
+
+async function startBluetoothScan() {
+    if (bluetoothState.scanning) {
+        await stopBluetoothScan();
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/bluetooth/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'start', duration: 30 })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            bluetoothState.scanning = true;
+            showToast('Zoeken naar Bluetooth apparaten...', 'info');
+            updateBluetoothScanButton();
+
+            // Poll more frequently during scan
+            startBluetoothPolling(2000);
+
+            // Auto-stop after 30 seconds
+            setTimeout(() => {
+                if (bluetoothState.scanning) {
+                    bluetoothState.scanning = false;
+                    updateBluetoothScanButton();
+                    startBluetoothPolling(3000);
+                }
+            }, 30000);
+        } else {
+            showToast(data.error || 'Scan starten mislukt', 'error');
+        }
+    } catch (error) {
+        console.error('Error starting Bluetooth scan:', error);
+        showToast('Fout bij starten scan', 'error');
+    }
+}
+
+async function stopBluetoothScan() {
+    try {
+        await fetch('/api/bluetooth/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'stop' })
+        });
+
+        bluetoothState.scanning = false;
+        updateBluetoothScanButton();
+        loadBluetoothDevices();
+    } catch (error) {
+        console.error('Error stopping Bluetooth scan:', error);
+    }
+}
+
+function updateBluetoothScanButton() {
+    const scanBtn = document.getElementById('btn-bluetooth-scan');
+    if (!scanBtn) return;
+
+    if (bluetoothState.scanning) {
+        scanBtn.classList.add('scanning');
+        scanBtn.querySelector('span').textContent = 'Stoppen';
+    } else {
+        scanBtn.classList.remove('scanning');
+        scanBtn.querySelector('span').textContent = 'Scannen';
+    }
+}
+
+async function pairBluetoothDevice(address, pin = null) {
+    bluetoothState.pairingDevice = address;
+    renderBluetoothDevices();
+
+    try {
+        const body = { address };
+        if (pin) body.pin = pin;
+
+        const response = await fetch('/api/bluetooth/pair', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast('Apparaat gekoppeld', 'info');
+            // Auto-connect after pairing
+            bluetoothState.pairingDevice = null;
+            await connectBluetoothDevice(address);
+        } else if (response.status === 202 && data.needs_pin) {
+            // Show PIN modal
+            bluetoothState.pairingDevice = null;
+            bluetoothState.pendingPinDevice = address;
+            showPinModal(address);
+        } else {
+            showToast(data.error || 'Koppelen mislukt', 'error');
+            bluetoothState.pairingDevice = null;
+        }
+    } catch (error) {
+        console.error('Error pairing Bluetooth device:', error);
+        showToast('Fout bij koppelen', 'error');
+        bluetoothState.pairingDevice = null;
+    }
+
+    renderBluetoothDevices();
+}
+
+async function connectBluetoothDevice(address) {
+    bluetoothState.connectingDevice = address;
+    renderBluetoothDevices();
+
+    try {
+        const response = await fetch('/api/bluetooth/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast('Verbonden', 'info');
+            // Refresh audio devices too
+            loadAudioDevices();
+        } else {
+            showToast(data.error || 'Verbinden mislukt', 'error');
+        }
+    } catch (error) {
+        console.error('Error connecting Bluetooth device:', error);
+        showToast('Fout bij verbinden', 'error');
+    }
+
+    bluetoothState.connectingDevice = null;
+    loadBluetoothDevices();
+}
+
+async function disconnectBluetoothDevice(address) {
+    bluetoothState.connectingDevice = address;
+    renderBluetoothDevices();
+
+    try {
+        const response = await fetch('/api/bluetooth/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast('Losgekoppeld', 'info');
+            loadAudioDevices();
+        } else {
+            showToast(data.error || 'Loskoppelen mislukt', 'error');
+        }
+    } catch (error) {
+        console.error('Error disconnecting Bluetooth device:', error);
+        showToast('Fout bij loskoppelen', 'error');
+    }
+
+    bluetoothState.connectingDevice = null;
+    loadBluetoothDevices();
+}
+
+async function forgetBluetoothDevice(address) {
+    try {
+        const response = await fetch('/api/bluetooth/forget', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast('Apparaat vergeten', 'info');
+            loadAudioDevices();
+        } else {
+            showToast(data.error || 'Vergeten mislukt', 'error');
+        }
+    } catch (error) {
+        console.error('Error forgetting Bluetooth device:', error);
+        showToast('Fout bij vergeten', 'error');
+    }
+
+    loadBluetoothDevices();
+}
+
+// PIN Modal
+function showPinModal(address) {
+    const modal = document.getElementById('bt-pin-modal');
+    const input = document.getElementById('bt-pin-input');
+
+    modal.classList.remove('hidden');
+    input.value = '';
+    input.focus();
+
+    bluetoothState.pendingPinDevice = address;
+}
+
+function hidePinModal() {
+    const modal = document.getElementById('bt-pin-modal');
+    modal.classList.add('hidden');
+    bluetoothState.pendingPinDevice = null;
+}
+
+function submitPin() {
+    const input = document.getElementById('bt-pin-input');
+    const pin = input.value.trim();
+    const address = bluetoothState.pendingPinDevice;
+
+    if (!pin || !address) {
+        showToast('Voer een PIN code in', 'error');
+        return;
+    }
+
+    hidePinModal();
+    pairBluetoothDevice(address, pin);
+}
+
+// Forget Confirmation Modal
+function showForgetModal(device) {
+    const modal = document.getElementById('bt-forget-modal');
+    const message = document.getElementById('bt-forget-message');
+
+    message.textContent = `Weet je zeker dat je "${device.name || 'dit apparaat'}" wilt vergeten?`;
+    modal.classList.remove('hidden');
+
+    // Store device for confirmation
+    modal.dataset.address = device.address;
+}
+
+function hideForgetModal() {
+    const modal = document.getElementById('bt-forget-modal');
+    modal.classList.add('hidden');
+    delete modal.dataset.address;
+}
+
+function confirmForget() {
+    const modal = document.getElementById('bt-forget-modal');
+    const address = modal.dataset.address;
+
+    hideForgetModal();
+
+    if (address) {
+        forgetBluetoothDevice(address);
+    }
+}
+
+// Bluetooth Polling
+function startBluetoothPolling(interval = 3000) {
+    stopBluetoothPolling();
+    bluetoothPollingInterval = setInterval(loadBluetoothDevices, interval);
+}
+
+function stopBluetoothPolling() {
+    if (bluetoothPollingInterval) {
+        clearInterval(bluetoothPollingInterval);
+        bluetoothPollingInterval = null;
+    }
+}
+
+// Setup Bluetooth event listeners
+function setupBluetoothEventListeners() {
+    // Scan button
+    const scanBtn = document.getElementById('btn-bluetooth-scan');
+    if (scanBtn) {
+        scanBtn.addEventListener('click', startBluetoothScan);
+    }
+
+    // PIN modal buttons
+    const cancelPinBtn = document.getElementById('btn-cancel-pin');
+    const submitPinBtn = document.getElementById('btn-submit-pin');
+    const pinInput = document.getElementById('bt-pin-input');
+
+    if (cancelPinBtn) cancelPinBtn.addEventListener('click', hidePinModal);
+    if (submitPinBtn) submitPinBtn.addEventListener('click', submitPin);
+    if (pinInput) {
+        pinInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') submitPin();
+        });
+    }
+
+    // Forget modal buttons
+    const cancelForgetBtn = document.getElementById('btn-cancel-forget');
+    const confirmForgetBtn = document.getElementById('btn-confirm-forget');
+
+    if (cancelForgetBtn) cancelForgetBtn.addEventListener('click', hideForgetModal);
+    if (confirmForgetBtn) confirmForgetBtn.addEventListener('click', confirmForget);
+
+    // Close modals on outside click
+    const pinModal = document.getElementById('bt-pin-modal');
+    const forgetModal = document.getElementById('bt-forget-modal');
+
+    if (pinModal) {
+        pinModal.addEventListener('click', (e) => {
+            if (e.target === pinModal) hidePinModal();
+        });
+    }
+    if (forgetModal) {
+        forgetModal.addEventListener('click', (e) => {
+            if (e.target === forgetModal) hideForgetModal();
+        });
+    }
 }

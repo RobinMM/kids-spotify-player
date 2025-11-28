@@ -156,6 +156,12 @@
                     </svg>
                     <span>Apparaten</span>
                 </button>
+                <button class="tab-btn" data-tab="bluetooth">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+                    </svg>
+                    <span>Bluetooth</span>
+                </button>
                 <button class="tab-btn" data-tab="other">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
@@ -254,7 +260,31 @@
                     </div>
                 </div>
 
-                <!-- Tab 3: Other (Shutdown) -->
+                <!-- Tab 3: Bluetooth -->
+                <div id="tab-bluetooth" class="tab-panel">
+                    <div class="bluetooth-controls">
+                        <button id="btn-bluetooth-scan" class="btn-scan">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            <span>Scannen</span>
+                        </button>
+                    </div>
+                    <div class="bluetooth-section">
+                        <h4>Gekoppelde apparaten</h4>
+                        <div id="bt-paired-list" class="devices-list">
+                            <div class="empty-state">Geen gekoppelde apparaten</div>
+                        </div>
+                    </div>
+                    <div class="bluetooth-section" id="bt-discovered-section" style="display: none;">
+                        <h4>Gevonden apparaten</h4>
+                        <div id="bt-discovered-list" class="devices-list">
+                            <div class="empty-state">Geen apparaten gevonden</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Other (Shutdown) -->
                 <div id="tab-other" class="tab-panel">
                     <div class="other-buttons-list">
                         <button id="btn-refresh-playlists" class="btn-refresh">
@@ -297,6 +327,31 @@
             <div class="modal-buttons">
                 <button id="btn-confirm-shutdown" class="btn-modal btn-danger">Ja, uitschakelen</button>
                 <button id="btn-cancel-shutdown" class="btn-modal btn-cancel">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bluetooth PIN Modal -->
+    <div id="bt-pin-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <h2 id="bt-pin-title">PIN code invoeren</h2>
+            <p>Voer de PIN code in voor dit apparaat:</p>
+            <input type="text" id="bt-pin-input" class="pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0000">
+            <div class="modal-buttons">
+                <button id="btn-cancel-pin" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-submit-pin" class="btn-modal btn-primary">Koppelen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bluetooth Forget Confirmation Modal -->
+    <div id="bt-forget-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <h2>Apparaat vergeten?</h2>
+            <p id="bt-forget-message">Weet je zeker dat je dit apparaat wilt vergeten?</p>
+            <div class="modal-buttons">
+                <button id="btn-cancel-forget" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-confirm-forget" class="btn-modal btn-danger">Vergeten</button>
             </div>
         </div>
     </div>

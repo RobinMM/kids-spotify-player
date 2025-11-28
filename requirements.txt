@@ -1,8 +1,6 @@
 Flask==3.0.0
 spotipy==2.23.0
 python-dotenv==1.0.0
-pycaw==20240210
-comtypes==1.4.1
-pywin32==311
 zeroconf==0.136.2
 cryptography>=41.0.0
+pexpect>=4.8.0
