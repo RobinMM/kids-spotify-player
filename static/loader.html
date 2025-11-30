@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laden...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .logo {
+            font-size: 80px;
+            margin-bottom: 30px;
+        }
+
+        .spinner {
+            width: 70px;
+            height: 70px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .status {
+            font-size: 20px;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        .progress-container {
+            width: 300px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        /* Error state */
+        .error-state {
+            display: none;
+        }
+
+        .error-icon {
+            font-size: 72px;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            font-size: 18px;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            max-width: 400px;
+        }
+
+        .retry-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 18px 50px;
+            font-size: 20px;
+            font-weight: 600;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .retry-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .retry-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading State -->
+    <div class="container" id="loading-state">
+        <div class="logo">🎵</div>
+        <div class="spinner"></div>
+        <h1 class="title">Muziekspeler</h1>
+        <p class="status" id="status-text">Opstarten...</p>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="container error-state" id="error-state">
+        <div class="error-icon">😢</div>
+        <h1 class="title">Oeps!</h1>
+        <p class="error-message">
+            De muziekspeler kon niet worden gestart.<br>
+            Probeer het opnieuw of herstart het apparaat.
+        </p>
+        <button class="retry-btn" onclick="startHealthCheck()">Opnieuw proberen</button>
+    </div>
+
+    <script>
+        const CONFIG = {
+            HEALTH_URL: 'http://127.0.0.1:5000/api/health',
+            APP_URL: 'http://127.0.0.1:5000/',
+            POLL_INTERVAL: 500,
+            MAX_ATTEMPTS: 120  // 60 seconds (120 * 500ms)
+        };
+
+        let attempts = 0;
+        let pollTimer = null;
+
+        const statusText = document.getElementById('status-text');
+        const progressBar = document.getElementById('progress-bar');
+        const loadingState = document.getElementById('loading-state');
+        const errorState = document.getElementById('error-state');
+
+        function updateStatus(message) {
+            statusText.textContent = message;
+        }
+
+        function updateProgress(percent) {
+            progressBar.style.width = Math.min(percent, 100) + '%';
+        }
+
+        function showError() {
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+                pollTimer = null;
+            }
+            loadingState.style.display = 'none';
+            errorState.style.display = 'block';
+        }
+
+        function showLoading() {
+            loadingState.style.display = 'block';
+            errorState.style.display = 'none';
+        }
+
+        async function checkHealth() {
+            attempts++;
+            const progress = (attempts / CONFIG.MAX_ATTEMPTS) * 100;
+            updateProgress(progress);
+
+            // Update status based on progress
+            if (attempts < 10) {
+                updateStatus('Opstarten...');
+            } else if (attempts < 40) {
+                updateStatus('Services laden...');
+            } else if (attempts < 80) {
+                updateStatus('Bijna klaar...');
+            } else {
+                updateStatus('Even geduld...');
+            }
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+                const response = await fetch(CONFIG.HEALTH_URL, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    cache: 'no-store'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.status === 'ok') {
+                        updateStatus('Gereed!');
+                        updateProgress(100);
+                        // Short delay for visual feedback
+                        setTimeout(() => {
+                            window.location.href = CONFIG.APP_URL;
+                        }, 300);
+                        return;
+                    }
+                }
+            } catch (error) {
+                // Network error or timeout - keep trying
+                console.log(`Health check ${attempts}/${CONFIG.MAX_ATTEMPTS} failed`);
+            }
+
+            // Check max attempts
+            if (attempts >= CONFIG.MAX_ATTEMPTS) {
+                showError();
+                return;
+            }
+
+            // Schedule next poll
+            pollTimer = setTimeout(checkHealth, CONFIG.POLL_INTERVAL);
+        }
+
+        function startHealthCheck() {
+            attempts = 0;
+            showLoading();
+            updateProgress(0);
+            checkHealth();
+        }
+
+        // Start when page loads
+        document.addEventListener('DOMContentLoaded', startHealthCheck);
+    </script>
+</body>
+</html>

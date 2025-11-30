@@ -177,11 +177,74 @@ def get_spotify_oauth(show_dialog=False):
         show_dialog=show_dialog
     )
 
+def restore_session_from_cache():
+    """Try to restore session from existing cache files.
+
+    This handles the case where Flask session is lost but Spotify tokens
+    are still valid in cache files (e.g., after browser restart).
+
+    Returns:
+        True if session was restored, False otherwise
+    """
+    if session.get('token_info'):
+        return True  # Session already exists
+
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cache_pattern = os.path.join(base_dir, '.cache-*')
+    cache_files = glob.glob(cache_pattern)
+
+    for cache_file in cache_files:
+        try:
+            with open(cache_file, 'r') as f:
+                token_info = json.load(f)
+
+            if not token_info.get('refresh_token'):
+                continue
+
+            # Extract user_id from cache filename
+            user_id = os.path.basename(cache_file).replace('.cache-', '')
+            if user_id == 'default':
+                continue
+
+            # Create OAuth with this user's cache
+            sp_oauth = SpotifyOAuth(
+                client_id=os.getenv('SPOTIFY_CLIENT_ID'),
+                client_secret=os.getenv('SPOTIFY_CLIENT_SECRET'),
+                redirect_uri=os.getenv('SPOTIFY_REDIRECT_URI'),
+                scope=SPOTIFY_SCOPE,
+                cache_path=cache_file
+            )
+
+            # Refresh token if expired
+            if sp_oauth.is_token_expired(token_info):
+                token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+
+            # Verify token works by making a test call
+            sp = spotipy.Spotify(auth=token_info['access_token'])
+            sp.current_user()  # This will raise if token is invalid
+
+            # Token is valid - restore session
+            session['token_info'] = token_info
+            session['user_id'] = user_id
+            print(f"Session restored from cache for user: {user_id}")
+            return True
+
+        except Exception as e:
+            print(f"Could not restore session from {cache_file}: {e}")
+            continue
+
+    return False
+
+
 def get_spotify_client():
     """Get authenticated Spotify client"""
     token_info = session.get('token_info', None)
     if not token_info:
-        return None
+        # Try to restore from cache first
+        if restore_session_from_cache():
+            token_info = session.get('token_info')
+        else:
+            return None
 
     sp_oauth = get_spotify_oauth()
 
@@ -773,8 +836,11 @@ def index():
     if not check_credentials():
         return render_template('setup.html')
 
+    # Try to restore session from cache if needed
     if not session.get('token_info'):
-        return redirect('/login')
+        if not restore_session_from_cache():
+            # Show friendly login page instead of redirecting to external Spotify
+            return render_template('login_required.html')
 
     # Create response with no-cache headers to prevent browser caching
     response = make_response(render_template('index.html'))
@@ -875,6 +941,20 @@ def logout():
     response.headers['Expires'] = '0'
 
     return response
+
+
+@app.route('/api/health')
+def health_check():
+    """Health check endpoint for startup detection.
+
+    Used by loader.html to detect when Flask is ready.
+    Returns 200 OK with status when server is responsive.
+    CORS headers allow file:// origin for local loader page.
+    """
+    response = jsonify({'status': 'ok', 'timestamp': time.time()})
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
+
 
 # API Endpoints
 @app.route('/api/playlists')

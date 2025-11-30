@@ -79,6 +79,7 @@ Single-file Flask application (~644 lines) with these key components:
 - Artists: `/api/artists` (gevolgde artiesten), `/api/artist/<id>/top-tracks` (top 10 tracks)
 - Local discovery: `/api/spotify-connect/local` (mDNS discovered devices), `/api/transfer-playback-local` (transfer to local device)
 - Special: `/api/audio/devices/refresh` re-enumerates audio devices
+- Health: `/api/health` (startup detection for loader page, returns `{"status": "ok"}`)
 
 **mDNS Discovery (Local Spotify Connect Devices):**
 - Uses `zeroconf` library to discover `_spotify-connect._tcp.local.` services on LAN
@@ -279,6 +280,26 @@ Werkende shutdown en reboot functionaliteit:
 - `/api/system/reboot` - Herstart Pi via `sudo reboot`
 - Beide knoppen hebben 3-seconde long-press beveiliging
 - Bevestigingsmodal voorkomt per ongeluk activeren
+
+### Kiosk Boot (Health Check System)
+
+Voorkomt wit scherm bij opstarten door race condition tussen Chromium en Flask.
+
+**Hoe het werkt:**
+1. `~/.config/autostart/kiosk.desktop` start Chromium met `file:///home/robin/spotify/static/loader.html`
+2. `loader.html` is een statische pagina (geen server nodig) met spinner en progress bar
+3. JavaScript pollt `/api/health` elke 500ms
+4. Zodra Flask antwoordt met `{"status": "ok"}`, redirect naar de app
+5. Na 60 seconden timeout: error pagina met retry knop
+
+**Bestanden:**
+- `static/loader.html` - Statische loader pagina met polling logica
+- `/api/health` endpoint in `app.py` - Retourneert status + CORS header voor file:// origin
+
+**Waarom file:// in plaats van http://:**
+- Lokaal bestand laadt instant (geen netwerk/server nodig)
+- Geen race condition mogelijk - pagina is altijd beschikbaar
+- JavaScript in de pagina handelt de server-check af
 
 ### Bluetooth Device Management
 
