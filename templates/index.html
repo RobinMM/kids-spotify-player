@@ -304,33 +304,42 @@
                         <p class="setting-hint">Volume kan niet hoger dan dit</p>
                     </div>
                     <hr class="other-divider">
-                    <div class="other-buttons-list">
-                        <button id="btn-refresh-playlists" class="btn-refresh">
+                    <!-- Action buttons row: Cache + Refresh -->
+                    <div class="action-buttons-row">
+                        <button id="btn-refresh-playlists" class="btn-action">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                            <span>Cache Verwijderen</span>
+                        </button>
+                        <button id="btn-refresh-interface" class="btn-action">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
-                            <span>Playlists Vernieuwen</span>
+                            <span>Refresh Interface</span>
                         </button>
-                        <hr class="other-divider">
-                        <button id="btn-logout" class="btn-logout">
+                    </div>
+                    <hr class="other-divider">
+                    <!-- System buttons row: Logout, Reboot, Shutdown -->
+                    <div class="system-buttons-row">
+                        <button id="btn-logout" class="btn-system btn-system-warning">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
                             </svg>
                             <span>Uitloggen</span>
                         </button>
-                        <button id="btn-reboot" class="btn-reboot">
+                        <button id="btn-reboot" class="btn-system btn-system-warning">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
                             <span>Herstarten</span>
                         </button>
-                        <button id="btn-shutdown" class="btn-shutdown">
+                        <button id="btn-shutdown" class="btn-system btn-system-danger">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
                             </svg>
-                            <span>Uitschakelen</span>
+                            <span>Afsluiten</span>
                         </button>
-                        <div class="other-hint">Houd 3 seconden ingedrukt</div>
                     </div>
                 </div>
             </div>

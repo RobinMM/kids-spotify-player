@@ -642,7 +642,7 @@ body {
 }
 
 .progress-bar-wrapper {
-    margin-bottom: 18px;
+    margin-bottom: 14px;
 }
 
 .progress-bar {
@@ -654,7 +654,7 @@ body {
     cursor: pointer;
     overflow: visible;
     padding: 16px 0;
-    margin: -16px 0;
+    margin: -16px 0 0;
     touch-action: pan-x;
     -webkit-user-select: none;
     user-select: none;
@@ -666,18 +666,18 @@ body {
     top: 16px;
     left: 0;
     right: 0;
-    height: 8px;
+    height: 12px;
     background: var(--slider-track);
-    border-radius: 4px;
+    border-radius: 6px;
 }
 
 .progress-fill {
     position: absolute;
     top: 16px;
     left: 0;
-    height: 8px;
+    height: 12px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    border-radius: 4px;
+    border-radius: 6px;
     width: 0%;
     transition: width 0.1s linear;
 }
@@ -685,11 +685,11 @@ body {
 .progress-fill::after {
     content: '';
     position: absolute;
-    right: -10px;
+    right: -16px;
     top: 50%;
     transform: translateY(-50%);
-    width: 20px;
-    height: 20px;
+    width: 32px;
+    height: 32px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     border-radius: 50%;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
@@ -699,8 +699,9 @@ body {
 .progress-time {
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
+    font-size: 16px;
     color: var(--text-tertiary);
+    margin-top: 12px;
 }
 
 /* Controls Section */
@@ -795,8 +796,8 @@ body {
     appearance: none;
     width: 100%;
     max-width: 200px;
-    height: 8px;
-    border-radius: 4px;
+    height: 12px;
+    border-radius: 6px;
     background: var(--slider-track);
     outline: none;
     touch-action: pan-x;
@@ -807,8 +808,8 @@ body {
 .volume-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     cursor: pointer;
@@ -816,8 +817,8 @@ body {
 }
 
 .volume-slider::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border: none;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
@@ -865,8 +866,8 @@ svg.icon {
 }
 
 .btn-open-settings svg.icon {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
 }
 
 .btn-open-settings:hover {
@@ -886,8 +887,9 @@ svg.icon {
     height: 100%;
     background: rgba(0, 0, 0, 0.7);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding-top: 100px;
     z-index: 1000;
 }
 
@@ -973,9 +975,9 @@ svg.icon {
     background: transparent;
     border: none;
     border-bottom: 3px solid var(--border-color);
-    padding: 14px 16px;
+    padding: 18px 16px;
     font-family: 'Quicksand', 'Segoe UI', sans-serif;
-    font-size: 17px;
+    font-size: 19px;
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
@@ -987,8 +989,8 @@ svg.icon {
 }
 
 .tab-icon {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     flex-shrink: 0;
 }
 
@@ -1004,13 +1006,12 @@ svg.icon {
 
 /* Tab Content */
 .tab-content-wrapper {
-    height: 360px;
-    overflow: visible;
+    max-height: 700px;
+    overflow-y: auto;
 }
 
 .tab-panel {
     display: none;
-    height: 100%;
 }
 
 .tab-panel.active {
@@ -1068,14 +1069,15 @@ svg.icon {
 .device-item {
     background: var(--hover-bg);
     border: 2px solid var(--border-color);
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 16px;
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     position: relative;
+    min-height: 72px;
 }
 
 .device-item:hover {
@@ -1103,8 +1105,8 @@ svg.icon {
 }
 
 .device-icon svg.icon {
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
 }
 
 .device-info {
@@ -1113,11 +1115,11 @@ svg.icon {
 
 .device-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 18px;
 }
 
 .device-type {
-    font-size: 12px;
+    font-size: 14px;
     opacity: 0.7;
 }
 
@@ -1374,17 +1376,18 @@ svg.icon {
 
 .default-volume-control input[type="range"] {
     flex: 1;
-    height: 8px;
+    height: 12px;
     -webkit-appearance: none;
     background: var(--slider-track);
-    border-radius: 4px;
+    border-radius: 6px;
     outline: none;
+    touch-action: pan-x;
 }
 
 .default-volume-control input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     border-radius: 50%;
     cursor: pointer;
@@ -1392,8 +1395,8 @@ svg.icon {
 }
 
 .default-volume-control input[type="range"]::-moz-range-thumb {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     border-radius: 50%;
     cursor: pointer;
@@ -1415,182 +1418,105 @@ svg.icon {
     margin-top: 8px;
 }
 
-/* Other Tab Buttons List */
-.other-buttons-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
+/* Other Tab Button Rows */
 .other-divider {
     border: none;
     border-top: 1px solid var(--border-color);
     margin: 8px 0;
 }
 
-.other-hint {
-    font-size: 13px;
-    color: #999;
-    text-align: center;
-    margin-top: 4px;
+.action-buttons-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
 }
 
-.btn-refresh {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
-    border: none;
-    border-radius: 15px;
-    padding: 20px 30px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.system-buttons-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
 }
 
-.btn-refresh svg.icon {
+/* Action buttons (Cache, Refresh Interface) */
+.btn-action {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-action svg.icon {
     width: 24px;
     height: 24px;
 }
 
-.btn-refresh:hover {
+.btn-action:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.25);
 }
 
-.btn-refresh:active {
+.btn-action:active {
     transform: translateY(0);
 }
 
-.btn-refresh:disabled {
+.btn-action:disabled {
     opacity: 0.7;
     cursor: not-allowed;
     transform: none;
 }
 
-.btn-refresh.loading .icon {
+.btn-action.loading .icon {
     animation: spin 1s linear infinite;
 }
 
-.btn-logout {
-    background: linear-gradient(135deg, #ffa502 0%, #ff7f00 100%);
+/* System buttons (Logout, Reboot, Shutdown) */
+.btn-system {
     color: white;
     border: none;
-    border-radius: 15px;
-    padding: 20px 30px;
-    font-size: 18px;
-    font-weight: bold;
+    border-radius: 10px;
+    padding: 14px 10px;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
-    width: 100%;
     transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 6px;
 }
 
-.btn-logout svg.icon {
+.btn-system svg.icon {
     width: 24px;
     height: 24px;
 }
 
-.btn-logout:hover {
+.btn-system:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-.btn-logout:active {
+.btn-system:active {
     transform: translateY(0);
 }
 
-.btn-logout.holding {
-    background: linear-gradient(135deg, #ff8800 0%, #e67300 100%);
-    animation: pulse 0.5s infinite;
-}
-
-.btn-reboot {
+.btn-system-warning {
     background: linear-gradient(135deg, #ffa502 0%, #ff7f00 100%);
-    color: white;
-    border: none;
-    border-radius: 15px;
-    padding: 20px 30px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
 }
 
-.btn-reboot svg.icon {
-    width: 24px;
-    height: 24px;
-}
-
-.btn-reboot:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-}
-
-.btn-reboot:active {
-    transform: translateY(0);
-}
-
-.btn-reboot.holding {
-    background: linear-gradient(135deg, #ff8800 0%, #e67300 100%);
-    animation: pulse 0.5s infinite;
-}
-
-.btn-shutdown {
+.btn-system-danger {
     background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-    color: white;
-    border: none;
-    border-radius: 15px;
-    padding: 20px 30px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    width: 100%;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.btn-shutdown svg.icon {
-    width: 24px;
-    height: 24px;
-}
-
-.btn-shutdown:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
-}
-
-.btn-shutdown:active {
-    transform: translateY(0);
-}
-
-.btn-shutdown.holding {
-    background: linear-gradient(135deg, #ff4757 0%, #c23616 100%);
-    animation: pulse 0.5s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
 }
 
 /* Modal Buttons */
@@ -1673,13 +1599,13 @@ svg.icon {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: 14px 24px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
     border: none;
     border-radius: 10px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     transition: all 0.2s;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -1695,8 +1621,8 @@ svg.icon {
 }
 
 .btn-scan .icon {
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
 }
 
 .btn-scan.scanning {
@@ -1737,42 +1663,32 @@ svg.icon {
 }
 
 .bt-device .device-status {
-    font-size: 12px;
+    font-size: 14px;
     color: var(--text-secondary);
     margin-top: 2px;
 }
 
-/* Forget Button */
-.btn-forget {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0;
-    background: none;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    color: var(--text-secondary);
-    border-radius: 8px;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-forget .icon {
-    width: 18px;
-    height: 18px;
-}
-
-.bt-device:hover .btn-forget {
-    opacity: 1;
-}
-
-.btn-forget:hover {
+/* Bluetooth Forget Button */
+.btn-bt-forget {
+    background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.btn-bt-forget:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.btn-bt-forget:active {
+    background: rgba(239, 68, 68, 0.35);
 }
 
 /* PIN Modal */

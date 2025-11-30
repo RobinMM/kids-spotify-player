@@ -30,12 +30,9 @@ function enableDragScroll() {
   // Click handler in capture phase to block clicks after drag
   document.addEventListener('click', (e) => {
     if (hasDragged) {
-      // Sta clicks op buttons en interactieve elementen toe
-      const isInteractive = e.target.closest('button, a, input, .control-btn, .playlist-item, .track-item, .artist-item, .album-item, .device-item');
-      if (!isInteractive) {
-        e.stopPropagation();
-        e.preventDefault();
-      }
+      // Block all clicks after drag to prevent accidental selection
+      e.stopPropagation();
+      e.preventDefault();
       hasDragged = false;
     }
   }, true);
@@ -548,6 +545,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupThemeListeners();
     setupBluetoothEventListeners();
+
+    // Reopen settings modal if coming back from refresh
+    const reopenTab = localStorage.getItem('reopenSettingsTab');
+    if (reopenTab) {
+        localStorage.removeItem('reopenSettingsTab');
+        settingsUnlocked = true; // Was already unlocked before refresh
+        showSettingsModal();
+        switchTab(reopenTab);
+    }
 });
 
 // Setup event listeners
@@ -573,10 +579,19 @@ function setupEventListeners() {
     progressBar.addEventListener('mousedown', startProgressDrag);
     progressBar.addEventListener('touchstart', startProgressDrag, { passive: false });
 
-    // Long-press protection for shutdown, reboot and logout
-    setupLongPress(shutdownBtn, 3000, showShutdownModal);
-    setupLongPress(rebootBtn, 3000, showRebootModal);
-    setupLongPress(logoutBtn, 3000, performLogout);
+    // System buttons (direct click - PIN already provides protection)
+    shutdownBtn.addEventListener('click', showShutdownModal);
+    rebootBtn.addEventListener('click', showRebootModal);
+    logoutBtn.addEventListener('click', performLogout);
+
+    // Refresh interface button - preserves modal state across reload
+    const refreshInterfaceBtn = document.getElementById('btn-refresh-interface');
+    if (refreshInterfaceBtn) {
+        refreshInterfaceBtn.addEventListener('click', () => {
+            localStorage.setItem('reopenSettingsTab', 'other');
+            location.reload();
+        });
+    }
 
     // Default volume slider in settings
     setupDefaultVolumeSlider();
@@ -2395,11 +2410,7 @@ function createBluetoothDeviceElement(device, isPaired) {
 
     // Forget button for paired devices
     const forgetBtn = isPaired ? `
-        <button class="btn-forget" data-address="${device.address}" title="Vergeten">
-            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
-            </svg>
-        </button>
+        <button class="btn-bt-forget" data-address="${device.address}">Vergeten</button>
     ` : '';
 
     div.innerHTML = `
@@ -2416,7 +2427,7 @@ function createBluetoothDeviceElement(device, isPaired) {
     // Click handler for device body
     div.onclick = (e) => {
         // Ignore clicks on forget button
-        if (e.target.closest('.btn-forget')) {
+        if (e.target.closest('.btn-bt-forget')) {
             e.stopPropagation();
             showForgetModal(device);
             return;
@@ -2872,10 +2883,11 @@ async function verifySettingsPin() {
 
         if (data.success) {
             settingsUnlocked = true;
+            const targetTab = pendingProtectedTab; // Save before hiding modal resets it
             hideSettingsPinModal();
             // Now switch to the protected tab
-            if (pendingProtectedTab) {
-                switchTab(pendingProtectedTab);
+            if (targetTab) {
+                switchTab(targetTab);
             }
         } else {
             showSettingsPinError();
