@@ -1353,6 +1353,68 @@ svg.icon {
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
+/* Settings Group for Other Tab */
+.setting-group {
+    margin-bottom: 16px;
+}
+
+.setting-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-color);
+}
+
+.default-volume-control {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.default-volume-control input[type="range"] {
+    flex: 1;
+    height: 8px;
+    -webkit-appearance: none;
+    background: var(--slider-track);
+    border-radius: 4px;
+    outline: none;
+}
+
+.default-volume-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.default-volume-control input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+#default-volume-value {
+    min-width: 45px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-color);
+}
+
+.setting-hint {
+    font-size: 13px;
+    color: #999;
+    margin-top: 8px;
+}
+
 /* Other Tab Buttons List */
 .other-buttons-list {
     display: flex;

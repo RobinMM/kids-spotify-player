@@ -368,3 +368,38 @@ Bluetooth en Overig tabs zijn beveiligd met een 6-cijferige PIN code.
 **Implementatie:**
 28. **is_default veld:** Toegevoegd aan `get_audio_devices_linux()` response
 29. **Visuele indicator:** `const isSelected = device.is_active || device.is_default` bepaalt `.active` class
+
+### Volume Control System
+
+**Architectuur:**
+- Spotify Connect volume staat vast op 100% (librespot `--initial-volume 100`)
+- Volume slider controleert output device via `pactl` (geen lag)
+- Volume scaling: slider toont 0-100%, maar schaalt naar max_volume instelling
+
+**Volume Scaling:**
+- Slider waarde (0-100) → werkelijk volume: `actual = (slider / 100) * max_volume`
+- Werkelijk volume → slider waarde: `slider = (actual / max_volume) * 100`
+- Kind ziet geen limiet - slider op 100% = max_volume (bijv. 80%)
+
+**API Endpoints:**
+| Endpoint | Method | Beschrijving |
+|----------|--------|--------------|
+| `/api/audio/volume` | GET | Huidige volume als slider waarde (0-100, geschaald) |
+| `/api/audio/volume` | POST | Zet volume via slider waarde (0-100, geschaald naar max) |
+| `/api/settings/volume` | GET | Haal default_volume en max_volume op |
+| `/api/settings/volume` | POST | Sla default_volume en/of max_volume op |
+
+**Settings:**
+- Opgeslagen in `~/.config/spotify-player/settings.json`
+- `default_volume`: Volume bij startup en device switch (standaard 50)
+- `max_volume`: Maximum toegestane volume (standaard 80)
+
+**Librespot configuratie:**
+- Service: `/home/robin/.config/systemd/user/librespot.service`
+- `--initial-volume 100` zorgt dat Spotify Connect volume vast op 100% staat
+
+**Implementatie details:**
+30. **Volume scaling backend:** `audio_volume()` in app.py handelt GET/POST met scaling formules
+31. **Safe volume:** Bij startup en device switch wordt volume naar default gezet
+32. **Settings UI:** Default en max volume sliders in beveiligde Overig tab
+33. **Frontend slider:** `volumeSlider.max` blijft altijd 100 - backend doet de scaling

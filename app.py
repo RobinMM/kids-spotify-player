@@ -633,7 +633,8 @@ class BluetoothManager:
             time.sleep(3)
 
             child = pexpect.spawn('bluetoothctl', timeout=30, encoding='utf-8')
-            child.expect('#')
+            # bluetoothctl prompt can be [bluetoothctl]> or [bluetooth]# with ANSI codes
+            child.expect(r'\[.*\][>#]')
             child.sendline(f'pair {address}')
 
             index = child.expect([
@@ -1555,17 +1556,157 @@ def set_audio_output():
         success = set_audio_device(device_id)
 
         if success:
-            # Invalidate cache so frontend gets updated active device status
-            # Audio devices will refresh automatically
-
-            # Wait for Windows to update the default device (150ms)
+            # Wait for system to update the default device
             time.sleep(0.15)
 
-            return jsonify({'success': True, 'device_id': device_id})
+            # Reset volume to safe default when switching devices
+            safe_volume = get_default_volume_setting()
+            set_system_volume(safe_volume)
+            print(f"[Audio] Switched to {device_id}, volume reset to {safe_volume}%")
+
+            return jsonify({'success': True, 'device_id': device_id, 'volume': safe_volume})
         else:
             return jsonify({'error': 'Failed to set audio device. Is AudioDeviceCmdlets installed?'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ============ System Audio Volume ============
+
+def get_volume_settings():
+    """Get the configured volume settings from settings file."""
+    config_file = os.path.expanduser('~/.config/spotify-player/settings.json')
+    defaults = {'default_volume': 50, 'max_volume': 80}
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                settings = json.load(f)
+                return {
+                    'default_volume': settings.get('default_volume', 50),
+                    'max_volume': settings.get('max_volume', 80)
+                }
+    except Exception as e:
+        print(f"[Audio] Error reading settings: {e}")
+    return defaults
+
+
+def get_default_volume_setting():
+    """Get the configured default/safe volume from settings file."""
+    return get_volume_settings()['default_volume']
+
+
+def get_max_volume_setting():
+    """Get the configured max volume from settings file."""
+    return get_volume_settings()['max_volume']
+
+
+def set_system_volume(volume_percent):
+    """Set system audio volume for default sink."""
+    try:
+        volume = max(0, min(100, int(volume_percent)))
+        subprocess.run(['pactl', 'set-sink-volume', '@DEFAULT_SINK@', f'{volume}%'],
+                      capture_output=True, timeout=5)
+        return True
+    except Exception as e:
+        print(f"[Audio] Error setting volume: {e}")
+        return False
+
+
+def get_system_volume():
+    """Get current system audio volume for default sink."""
+    try:
+        result = subprocess.run(['pactl', 'get-sink-volume', '@DEFAULT_SINK@'],
+                               capture_output=True, text=True, timeout=5)
+        # Parse "Volume: front-left: 32768 /  50% / ..."
+        match = re.search(r'(\d+)%', result.stdout)
+        if match:
+            return int(match.group(1))
+    except Exception as e:
+        print(f"[Audio] Error getting volume: {e}")
+    return 50  # Default fallback
+
+
+@app.route('/api/audio/volume', methods=['GET', 'POST'])
+def audio_volume():
+    """Get or set system audio volume for default sink.
+
+    Volume is scaled: slider shows 0-100%, but actual volume is 0-max_volume.
+    This way the user doesn't see the limit - slider at 100% = max_volume.
+    """
+    max_vol = get_max_volume_setting()
+
+    if request.method == 'GET':
+        actual_volume = get_system_volume()
+        # Scale actual volume to slider value (0-100)
+        slider_value = int((actual_volume / max_vol) * 100) if max_vol > 0 else 0
+        slider_value = min(100, slider_value)  # Cap at 100
+        return jsonify({'volume': slider_value})
+
+    # POST: Set volume - scale slider value (0-100) to actual volume (0-max_vol)
+    data = request.get_json()
+    slider_value = max(0, min(100, int(data.get('volume', 50))))
+    actual_volume = int((slider_value / 100) * max_vol)
+
+    if set_system_volume(actual_volume):
+        return jsonify({'success': True, 'volume': slider_value})
+    else:
+        return jsonify({'error': 'Kon volume niet aanpassen'}), 500
+
+
+@app.route('/api/settings/volume', methods=['GET', 'POST'])
+def volume_settings():
+    """Get or set volume settings (default and max)."""
+    config_dir = os.path.expanduser('~/.config/spotify-player')
+    config_file = os.path.join(config_dir, 'settings.json')
+
+    if request.method == 'GET':
+        settings = get_volume_settings()
+        return jsonify(settings)
+
+    # POST: Save volume settings
+    data = request.get_json()
+
+    try:
+        # Ensure config directory exists
+        os.makedirs(config_dir, exist_ok=True)
+
+        # Read existing settings or create new
+        settings = {}
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                settings = json.load(f)
+
+        # Update default_volume if provided
+        if 'default_volume' in data:
+            settings['default_volume'] = max(10, min(80, int(data['default_volume'])))
+
+        # Update max_volume if provided
+        if 'max_volume' in data:
+            settings['max_volume'] = max(30, min(100, int(data['max_volume'])))
+
+        # Ensure default doesn't exceed max
+        if settings.get('default_volume', 50) > settings.get('max_volume', 80):
+            settings['default_volume'] = settings['max_volume']
+
+        with open(config_file, 'w') as f:
+            json.dump(settings, f)
+
+        return jsonify({
+            'success': True,
+            'default_volume': settings.get('default_volume', 50),
+            'max_volume': settings.get('max_volume', 80)
+        })
+    except Exception as e:
+        print(f"[Audio] Error saving volume settings: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# Keep old endpoint for backwards compatibility
+@app.route('/api/settings/default-volume', methods=['GET', 'POST'])
+def default_volume_setting():
+    """Legacy endpoint - redirects to volume_settings."""
+    return volume_settings()
+
 
 @app.route('/api/spotify-connect/local')
 def get_local_spotify_devices():
@@ -1799,6 +1940,13 @@ if __name__ == '__main__':
         bt_thread = Thread(target=auto_reconnect_bluetooth_background, daemon=True)
         bt_thread.start()
         print("Bluetooth auto-reconnect check scheduled...")
+
+    # Set safe default volume on startup
+    default_volume = get_default_volume_setting()
+    if set_system_volume(default_volume):
+        print(f"[Audio] Set startup volume to {default_volume}%")
+    else:
+        print("[Audio] Warning: Could not set startup volume")
 
     # Start Spotify Connect mDNS discovery
     start_spotify_connect_discovery()

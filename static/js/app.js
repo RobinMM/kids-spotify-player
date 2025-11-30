@@ -460,6 +460,15 @@ let progressInterpolationInterval = null;
 let isVolumeAdjusting = false;
 let volumeDebounceTimer = null;
 
+// Default volume setting elements
+const defaultVolumeSlider = document.getElementById('default-volume-slider');
+const defaultVolumeValue = document.getElementById('default-volume-value');
+const maxVolumeSlider = document.getElementById('max-volume-slider');
+const maxVolumeValueEl = document.getElementById('max-volume-value');
+
+// Current max volume (updated from settings)
+let currentMaxVolume = 80;
+
 // Long-press helper for buttons with hold-to-activate behavior
 function setupLongPress(button, duration, onComplete) {
     if (!button) return;
@@ -533,6 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSavedTheme();
     restoreFromURL(); // Restore state from URL or load defaults
     preloadAudioDevices(); // Preload audio devices in background
+    loadSystemVolume(); // Sync volume slider with system audio
     startCurrentTrackPolling();
     startProgressInterpolation();
     setupEventListeners();
@@ -567,6 +577,9 @@ function setupEventListeners() {
     setupLongPress(shutdownBtn, 3000, showShutdownModal);
     setupLongPress(rebootBtn, 3000, showRebootModal);
     setupLongPress(logoutBtn, 3000, performLogout);
+
+    // Default volume slider in settings
+    setupDefaultVolumeSlider();
 
     confirmShutdownBtn.addEventListener('click', confirmShutdown);
     cancelShutdownBtn.addEventListener('click', hideShutdownModal);
@@ -1307,21 +1320,21 @@ function updateShuffleButton() {
     shuffleBtn.classList.toggle('shuffle-on', isShuffleOn);
 }
 
-// Handle volume change
+// Handle volume change - controls system audio volume (not Spotify)
 function handleVolumeChange() {
     const volume = volumeSlider.value;
     updateVolumeIcon(volume);
 
-    // Debounce API calls to prevent too many requests
+    // Debounce API calls - short delay for responsive feel
     clearTimeout(volumeDebounceTimer);
     volumeDebounceTimer = setTimeout(async () => {
         try {
-            const response = await fetch('/api/volume', {
+            const response = await fetch('/api/audio/volume', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ volume_percent: parseInt(volume) })
+                body: JSON.stringify({ volume: parseInt(volume) })
             });
             if (!response.ok) {
                 const data = await response.json();
@@ -1330,7 +1343,132 @@ function handleVolumeChange() {
         } catch (error) {
             console.error('Error setting volume:', error);
         }
-    }, 100);
+    }, 50);
+}
+
+// Load current system volume and sync slider
+async function loadSystemVolume() {
+    try {
+        const response = await fetch('/api/audio/volume');
+        const data = await response.json();
+        if (data.volume !== undefined) {
+            volumeSlider.value = data.volume;
+            updateVolumeIcon(data.volume);
+        }
+        // Note: volumeSlider.max stays at 100 - backend handles scaling to actual max_volume
+    } catch (error) {
+        console.error('Error loading system volume:', error);
+    }
+}
+
+// Load volume settings (default and max) and sync sliders
+async function loadVolumeSettings() {
+    try {
+        const response = await fetch('/api/settings/volume');
+        const data = await response.json();
+
+        // Update default volume slider
+        if (data.default_volume !== undefined && defaultVolumeSlider && defaultVolumeValue) {
+            defaultVolumeSlider.value = data.default_volume;
+            defaultVolumeValue.textContent = data.default_volume + '%';
+        }
+
+        // Update max volume slider
+        if (data.max_volume !== undefined && maxVolumeSlider && maxVolumeValueEl) {
+            maxVolumeSlider.value = data.max_volume;
+            maxVolumeValueEl.textContent = data.max_volume + '%';
+            currentMaxVolume = data.max_volume;
+
+            // Update default slider max to not exceed max volume
+            if (defaultVolumeSlider) {
+                defaultVolumeSlider.max = data.max_volume;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading volume settings:', error);
+    }
+}
+
+// Alias for backwards compatibility
+async function loadDefaultVolumeSetting() {
+    return loadVolumeSettings();
+}
+
+// Save volume setting (default or max)
+async function saveVolumeSetting(key, value) {
+    try {
+        const body = {};
+        body[key] = parseInt(value);
+
+        const response = await fetch('/api/settings/volume', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            showToast(data.error || 'Fout bij opslaan', 'error');
+        } else {
+            // Update currentMaxVolume for reference and default slider
+            if (data.max_volume !== undefined) {
+                currentMaxVolume = data.max_volume;
+
+                // Update default slider max (setting slider max is OK - it's in protected settings)
+                if (defaultVolumeSlider) {
+                    defaultVolumeSlider.max = data.max_volume;
+                    // Ensure default doesn't exceed max
+                    if (parseInt(defaultVolumeSlider.value) > data.max_volume) {
+                        defaultVolumeSlider.value = data.max_volume;
+                        defaultVolumeValue.textContent = data.max_volume + '%';
+                    }
+                }
+
+                // Reload volume to rescale slider to new max
+                // (e.g., if max was 80 and is now 60, slider at 50% means different actual volume)
+                loadSystemVolume();
+            }
+        }
+    } catch (error) {
+        console.error('Error saving volume setting:', error);
+    }
+}
+
+// Setup volume settings sliders event listeners
+function setupVolumeSettingsSliders() {
+    let saveTimer = null;
+
+    // Default volume slider
+    if (defaultVolumeSlider && defaultVolumeValue) {
+        defaultVolumeSlider.addEventListener('input', () => {
+            const value = defaultVolumeSlider.value;
+            defaultVolumeValue.textContent = value + '%';
+
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                saveVolumeSetting('default_volume', value);
+            }, 300);
+        });
+    }
+
+    // Max volume slider
+    if (maxVolumeSlider && maxVolumeValueEl) {
+        maxVolumeSlider.addEventListener('input', () => {
+            const value = maxVolumeSlider.value;
+            maxVolumeValueEl.textContent = value + '%';
+
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                saveVolumeSetting('max_volume', value);
+            }, 300);
+        });
+    }
+}
+
+// Alias for backwards compatibility
+function setupDefaultVolumeSlider() {
+    setupVolumeSettingsSliders();
 }
 
 // Update volume icon based on volume level
@@ -1488,10 +1626,8 @@ async function updateCurrentTrack() {
             updateShuffleButton();
         }
 
-        if (data.volume_percent !== undefined && !isVolumeAdjusting) {
-            volumeSlider.value = data.volume_percent;
-            updateVolumeIcon(data.volume_percent);
-        }
+        // Volume is now controlled via system audio, not Spotify
+        // Volume slider is synced via loadSystemVolume() on page load
 
         if (data.track) {
             // Track playing - show real data
@@ -1623,6 +1759,11 @@ function switchTab(tabName) {
     if (tabName === 'bluetooth') {
         loadBluetoothDevices();
         startBluetoothPolling();
+    }
+
+    // Load default volume setting when switching to other tab
+    if (tabName === 'other') {
+        loadDefaultVolumeSetting();
     }
 }
 
@@ -1979,6 +2120,9 @@ async function selectAudioDevice(deviceId) {
 
             // Reload devices to show new active state
             await loadAudioDevices();
+
+            // Sync volume slider (backend resets to safe default on device switch)
+            await loadSystemVolume();
 
             // Show success animation
             showSuccessCheck(clickedDevice);

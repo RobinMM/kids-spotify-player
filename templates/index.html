@@ -286,6 +286,24 @@
 
                 <!-- Tab 4: Other (Shutdown) -->
                 <div id="tab-other" class="tab-panel">
+                    <!-- Volume Settings -->
+                    <div class="setting-group">
+                        <label class="setting-label">Standaard Volume</label>
+                        <div class="default-volume-control">
+                            <input type="range" id="default-volume-slider" min="10" max="80" value="50">
+                            <span id="default-volume-value">50%</span>
+                        </div>
+                        <p class="setting-hint">Volume bij opstarten en wisselen van apparaat</p>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">Maximum Volume</label>
+                        <div class="default-volume-control">
+                            <input type="range" id="max-volume-slider" min="30" max="100" value="80">
+                            <span id="max-volume-value">80%</span>
+                        </div>
+                        <p class="setting-hint">Volume kan niet hoger dan dit</p>
+                    </div>
+                    <hr class="other-divider">
                     <div class="other-buttons-list">
                         <button id="btn-refresh-playlists" class="btn-refresh">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
