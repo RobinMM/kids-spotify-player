@@ -137,6 +137,7 @@ let accentColor = '#eacd66';
 let settingsUnlocked = false;
 let currentPinInput = '';
 let pendingProtectedTab = null;
+let pinProtectionEnabled = true;
 
 // Audio device cache
 let cachedAudioDevices = null;
@@ -252,7 +253,7 @@ async function restoreFromURL() {
         });
 
         const artistSubToggle = document.getElementById('artist-sub-toggle');
-        if (artistSubToggle) artistSubToggle.style.display = 'grid';
+        if (artistSubToggle) artistSubToggle.style.display = 'flex';
 
         await loadArtists();
 
@@ -545,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupThemeListeners();
     setupBluetoothEventListeners();
+    setupPinProtectionToggle();
 
     // Reopen settings modal if coming back from refresh
     const reopenTab = localStorage.getItem('reopenSettingsTab');
@@ -1016,7 +1018,7 @@ function goBackToAlbums() {
     // Hide back button, show sub-toggle
     if (albumBackBtn) albumBackBtn.style.display = 'none';
     const artistSubToggle = document.getElementById('artist-sub-toggle');
-    if (artistSubToggle) artistSubToggle.style.display = 'grid';
+    if (artistSubToggle) artistSubToggle.style.display = 'flex';
 
     // Show and update panel title
     const tracksPanelTitle = document.getElementById('tracks-panel-title');
@@ -1198,30 +1200,51 @@ function renderTracks(tracks) {
         return;
     }
 
+    // Compact list layout for all tracks
+    const listContainer = document.createElement('div');
+    listContainer.className = 'top-tracks-list';
+
     tracks.forEach(track => {
         const trackDiv = document.createElement('div');
-        trackDiv.className = 'track-item';
+        trackDiv.className = 'top-track-item';
         trackDiv.setAttribute('data-track-id', track.id);
 
-        // Always create image element with fallback to prevent layout shift
+        // Thumbnail
         const img = document.createElement('img');
         img.src = track.image || '/static/img/placeholder.svg';
         img.alt = track.name;
-        img.className = 'track-image';
+        img.className = 'top-track-image';
         trackDiv.appendChild(img);
 
-        // Create text container
-        const textDiv = document.createElement('div');
-        textDiv.className = 'track-info-text';
-        textDiv.innerHTML = `
-            <div class="track-name">${escapeHtml(track.name)}</div>
-            <div class="track-artist">${escapeHtml(track.artist)}</div>
-        `;
-        trackDiv.appendChild(textDiv);
+        // Info container (artist + title)
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'top-track-info';
+
+        // Artist (above title)
+        const artist = document.createElement('span');
+        artist.className = 'top-track-artist';
+        artist.textContent = track.artist;
+        infoDiv.appendChild(artist);
+
+        // Title
+        const title = document.createElement('span');
+        title.className = 'top-track-title';
+        title.textContent = track.name;
+        infoDiv.appendChild(title);
+
+        trackDiv.appendChild(infoDiv);
+
+        // Duration
+        const duration = document.createElement('span');
+        duration.className = 'top-track-duration';
+        duration.textContent = formatDuration(track.duration_ms);
+        trackDiv.appendChild(duration);
 
         trackDiv.onclick = () => playTrack(track.uri);
-        tracksContainer.appendChild(trackDiv);
+        listContainer.appendChild(trackDiv);
     });
+
+    tracksContainer.appendChild(listContainer);
 
     // Highlight currently playing track if any
     highlightCurrentTrack();
@@ -1692,7 +1715,7 @@ async function updateCurrentTrack() {
 // Highlight currently playing track in the track list
 function highlightCurrentTrack() {
     // Remove existing playing class from all tracks
-    document.querySelectorAll('.album-track-item.playing, .track-item.playing').forEach(el => {
+    document.querySelectorAll('.album-track-item.playing, .track-item.playing, .top-track-item.playing').forEach(el => {
         el.classList.remove('playing');
     });
 
@@ -1700,7 +1723,7 @@ function highlightCurrentTrack() {
     if (!currentTrackId) return;
 
     // Find and highlight the matching track
-    document.querySelectorAll('.album-track-item[data-track-id], .track-item[data-track-id]').forEach(el => {
+    document.querySelectorAll('.album-track-item[data-track-id], .track-item[data-track-id], .top-track-item[data-track-id]').forEach(el => {
         if (el.getAttribute('data-track-id') === currentTrackId) {
             el.classList.add('playing');
         }
@@ -2826,6 +2849,13 @@ function setupBluetoothEventListeners() {
 // =============================================================================
 
 function showSettingsPinModal(targetTab) {
+    // Skip PIN modal if protection is disabled
+    if (!pinProtectionEnabled) {
+        settingsUnlocked = true;
+        switchTab(targetTab);
+        return;
+    }
+
     pendingProtectedTab = targetTab;
     currentPinInput = '';
     updatePinDisplay();
@@ -2913,6 +2943,17 @@ function hideSettingsPinError() {
 }
 
 async function verifySettingsPin() {
+    // Check if PIN protection is disabled
+    if (!pinProtectionEnabled) {
+        settingsUnlocked = true;
+        const targetTab = pendingProtectedTab;
+        hideSettingsPinModal();
+        if (targetTab) {
+            switchTab(targetTab);
+        }
+        return;
+    }
+
     try {
         const response = await fetch('/api/verify-pin', {
             method: 'POST',
@@ -2940,6 +2981,36 @@ async function verifySettingsPin() {
         showSettingsPinError();
         currentPinInput = '';
         updatePinDisplay();
+    }
+}
+
+// Setup PIN protection toggle
+function setupPinProtectionToggle() {
+    const pinToggle = document.getElementById('pin-protection-toggle');
+    const pinToggleLabel = document.querySelector('.toggle-switch-label');
+
+    if (pinToggle) {
+        // Load saved state from localStorage
+        const savedState = localStorage.getItem('pinProtectionEnabled');
+        if (savedState !== null) {
+            pinProtectionEnabled = savedState === 'true';
+            pinToggle.checked = pinProtectionEnabled;
+            if (pinToggleLabel) {
+                pinToggleLabel.textContent = pinProtectionEnabled ? 'Ingeschakeld' : 'Uitgeschakeld';
+            }
+        }
+
+        pinToggle.addEventListener('change', () => {
+            pinProtectionEnabled = pinToggle.checked;
+            localStorage.setItem('pinProtectionEnabled', pinProtectionEnabled);
+            if (pinToggleLabel) {
+                pinToggleLabel.textContent = pinProtectionEnabled ? 'Ingeschakeld' : 'Uitgeschakeld';
+            }
+            // Reset unlocked state when enabling protection
+            if (pinProtectionEnabled) {
+                settingsUnlocked = false;
+            }
+        });
     }
 }
 

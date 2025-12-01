@@ -36,18 +36,30 @@
         <!-- Middle Panel: Tracks -->
         <div class="panel panel-middle">
             <div class="panel-header">
+                <!-- Album back button (buiten panel-title-row zodat hij zichtbaar blijft) -->
+                <button class="back-btn" id="album-back-btn" style="display: none;" title="Terug naar albums">
+                    <svg class="icon" viewBox="0 0 512 463.95" fill="currentColor">
+                        <path d="M512 332.66H268.5v92.31c-.68 15.47-5.77 26.46-15.43 32.82-25.79 17.2-52.31-5.26-69.24-22.6L14.33 261.6c-19.11-17.28-19.11-41.93 0-59.21L188.71 24.42c16.06-16.39 40.56-34.09 64.36-18.21 9.66 6.35 14.75 17.34 15.43 32.81v92.31H512v201.33z"/>
+                    </svg>
+                    Terug
+                </button>
                 <div class="panel-title-row">
-                    <button class="back-btn" id="album-back-btn" style="display: none;" title="Terug naar albums">
-                        <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-                        </svg>
-                    </button>
                     <h2 class="panel-title" id="tracks-panel-title">Nummers</h2>
                 </div>
                 <!-- Sub-toggle for artists view: Top Nummers / Albums -->
                 <div class="artist-sub-toggle" id="artist-sub-toggle" style="display: none;">
-                    <button class="sub-toggle-btn active" data-subview="tracks">Top Nummers</button>
-                    <button class="sub-toggle-btn" data-subview="albums">Albums</button>
+                    <button class="sub-toggle-btn active" data-subview="tracks">
+                        <svg class="toggle-icon toggle-icon-large" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.24 16L12 15.45 7.77 18l1.12-4.81-3.73-3.23 4.92-.42L12 5l1.92 4.53 4.92.42-3.73 3.23L16.23 18z"/>
+                        </svg>
+                        Top Nummers
+                    </button>
+                    <button class="sub-toggle-btn" data-subview="albums">
+                        <svg class="toggle-icon" viewBox="0 0 512 512" fill="currentColor">
+                            <path d="M490.673,128.006V85.34c0-11.782-9.551-21.333-21.333-21.333h-21.333V21.34c0-11.782-9.551-21.333-21.333-21.333H85.34c-11.782,0-21.333,9.551-21.333,21.333v42.667H42.673c-11.782,0-21.333,9.551-21.333,21.333v42.667c-13.358,0-23.43,12.136-20.968,25.265l64,341.333c1.892,10.09,10.702,17.402,20.968,17.402h341.333c10.266,0,19.076-7.312,20.968-17.402l64-341.333C514.103,140.142,504.031,128.006,490.673,128.006z M106.673,42.673H405.34v21.333H106.673V42.673z M64.006,106.673H85.34h341.333h21.333v21.333h-384V106.673z M408.968,469.34H103.045l-56-298.667h417.923L408.968,469.34z M256.007,426.673c69.77,0,128-46.583,128-106.667c0-60.084-58.23-106.667-128-106.667s-128,46.583-128,106.667C128.006,380.091,186.237,426.673,256.007,426.673z M256.007,256.007c48.037,0,85.333,29.836,85.333,64s-37.297,64-85.333,64s-85.333-29.836-85.333-64S207.97,256.007,256.007,256.007z"/>
+                        </svg>
+                        Albums
+                    </button>
                 </div>
             </div>
             <div class="scrollable">
@@ -59,7 +71,12 @@
 
         <!-- Right Panel: Now Playing & Controls -->
         <div class="panel panel-right">
-            <h2 class="panel-title">Nu aan het spelen</h2>
+            <h2 class="panel-title">
+                <svg class="panel-title-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+                Nu aan het spelen
+            </h2>
 
             <!-- Album Art & Track Info -->
             <div id="now-playing" class="now-playing">
@@ -302,6 +319,16 @@
                             <span id="max-volume-value">80%</span>
                         </div>
                         <p class="setting-hint">Volume kan niet hoger dan dit</p>
+                    </div>
+                    <div class="setting-group">
+                        <label class="setting-label">PIN Beveiliging</label>
+                        <div class="toggle-switch-container">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pin-protection-toggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-switch-label">Ingeschakeld</span>
+                        </div>
                     </div>
                     <hr class="other-divider">
                     <!-- Action buttons row: Cache + Refresh -->

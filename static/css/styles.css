@@ -81,11 +81,22 @@ body {
     margin-bottom: 12px;
     text-align: center;
     transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.panel-title-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
 }
 
 /* View Toggle (Playlists / Artists) */
 .view-toggle {
     display: flex;
+    flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
 }
@@ -96,10 +107,10 @@ body {
     color: white;
     border: none;
     border-radius: 12px;
-    padding: 12px 10px;
+    padding: 16px 10px;
     cursor: pointer;
     font-family: 'Quicksand', sans-serif;
-    font-size: 14px;
+    font-size: 20px;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -110,13 +121,12 @@ body {
 }
 
 .view-toggle-btn .toggle-icon {
-    width: 20px;
-    height: 20px;
+    width: 28px;
+    height: 28px;
     flex-shrink: 0;
 }
 
 .view-toggle-btn:hover {
-    transform: scale(1.05);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
@@ -135,11 +145,12 @@ body {
 
 .panel-header .panel-title {
     margin-bottom: 0;
+    display: none;
 }
 
 /* Panel Title Row (with back button) */
 .panel-title-row {
-    display: flex;
+    display: none;
     align-items: center;
     gap: 12px;
 }
@@ -147,31 +158,37 @@ body {
 .back-btn {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     border: none;
-    border-radius: 8px;
-    padding: 8px;
+    border-radius: 12px;
+    width: 175px;
+    padding: 16px 16px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
 }
 
 .back-btn:hover {
-    transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .back-btn .icon {
-    width: 20px;
-    height: 20px;
+    width: 36px;
+    height: 36px;
     color: white;
 }
 
 /* Artist Sub-Toggle (Top Nummers / Albums) */
 .artist-sub-toggle {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(200px, 1fr));
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
     gap: 15px;
 }
 
@@ -179,18 +196,33 @@ body {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
     color: white;
     border: none;
-    border-radius: 10px;
-    padding: 12px 16px;
+    border-radius: 12px;
+    padding: 16px 16px;
     cursor: pointer;
     font-family: 'Quicksand', sans-serif;
-    font-size: 14px;
+    font-size: 20px;
     font-weight: 600;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.sub-toggle-btn .toggle-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.sub-toggle-btn .toggle-icon-large {
+    width: 36px;
+    height: 36px;
 }
 
 .sub-toggle-btn:hover {
-    transform: scale(1.03);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -203,7 +235,7 @@ body {
 .album-header {
     display: flex;
     gap: 20px;
-    padding: 16px;
+    padding: 0 16px 16px 0;
     margin-bottom: 16px;
     align-items: flex-end;
     grid-column: 1 / -1;
@@ -211,14 +243,14 @@ body {
 
 .album-header-image-container {
     position: relative;
-    width: 150px;
-    height: 150px;
+    width: 175px;
+    height: 175px;
     flex-shrink: 0;
 }
 
 .album-header-image {
-    width: 150px;
-    height: 150px;
+    width: 175px;
+    height: 175px;
     border-radius: 8px;
     object-fit: cover;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
@@ -261,18 +293,18 @@ body {
 }
 
 .album-header-title {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .album-header-artist {
-    font-size: 14px;
+    font-size: 20px;
     color: var(--text-primary);
 }
 
 .album-header-meta {
-    font-size: 13px;
+    font-size: 18px;
     color: var(--text-secondary);
 }
 
@@ -301,13 +333,13 @@ body {
 
 .album-track-item .track-number {
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 500;
 }
 
 .album-track-item .track-title {
     color: var(--text-primary);
-    font-size: 15px;
+    font-size: 20px;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -316,7 +348,7 @@ body {
 
 .album-track-item .track-duration {
     color: var(--text-secondary);
-    font-size: 14px;
+    font-size: 18px;
     text-align: right;
 }
 
@@ -337,6 +369,76 @@ body {
 
 .track-item.playing .track-name {
     color: var(--primary-color);
+}
+
+/* Top Tracks List View (artist top nummers) */
+.top-tracks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    grid-column: 1 / -1;
+}
+
+.top-track-item {
+    display: grid;
+    grid-template-columns: 140px 1fr 60px;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 0 16px 8px 0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.top-track-item:hover {
+    background: var(--hover-bg);
+}
+
+.top-track-item.playing {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.1) 100%);
+}
+
+.top-track-image {
+    width: 140px;
+    height: 140px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.top-track-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+    min-width: 0;
+}
+
+.top-track-artist {
+    color: var(--text-secondary);
+    font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-track-title {
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.top-track-item.playing .top-track-title {
+    color: var(--primary-color);
+}
+
+.top-track-duration {
+    color: var(--text-secondary);
+    font-size: 18px;
+    text-align: right;
 }
 
 /* Album Items - Square images with year */
@@ -377,7 +479,7 @@ body {
 }
 
 .album-name {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: bold;
     color: var(--text-primary);
     margin-bottom: 4px;
@@ -386,7 +488,7 @@ body {
 }
 
 .album-year {
-    font-size: 13px;
+    font-size: 18px;
     color: var(--text-secondary);
     line-height: 1.2;
 }
@@ -535,6 +637,7 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 15px;
     padding: 5px;
+    padding-left: 0;
 }
 
 #tracks-container .loading,
@@ -1840,4 +1943,61 @@ body[data-theme="dark"] .pin-key:hover {
 #settings-pin-modal h2 {
     text-align: center;
     margin-bottom: 10px;
+}
+
+/* Toggle Switch */
+.toggle-switch-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--slider-track);
+    transition: 0.3s;
+    border-radius: 34px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+}
+
+.toggle-switch-label {
+    font-size: 16px;
+    color: var(--text-secondary);
 }
