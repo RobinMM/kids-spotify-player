@@ -203,6 +203,13 @@ Tab-based interface with 3 tabs and fixed 360px height:
   - Status: 404 with Dutch message "Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu."
 - Debug logging enabled for troubleshooting (timing logs, device enumeration details)
 
+**Defensive Error Handling (API Stability):**
+- `handle_spotify_error(e)` helper converts SpotifyException to Dutch messages with correct HTTP status codes
+- **API Cooldown mechanism:** 30 seconden pauze na server errors (500/502/503/504) om escalatie te voorkomen
+- **Cached responses:** `/api/current` retourneert cached data tijdens cooldown periode
+- **Progress validatie:** Negatieve of ongeldige `progress_ms` waarden worden gecorrigeerd (kan voorkomen bij sync problemen)
+- **Frontend validatie:** `formatTime()` en `updateCurrentTrack()` valideren progress/duration waarden
+
 ## Important Implementation Notes
 
 1. **Never skip token refresh:** Always use `get_spotify_client()` - it handles token expiration automatically
@@ -403,3 +410,28 @@ Bluetooth en Overig tabs zijn beveiligd met een 6-cijferige PIN code.
 31. **Safe volume:** Bij startup en device switch wordt volume naar default gezet
 32. **Settings UI:** Default en max volume sliders in beveiligde Overig tab
 33. **Frontend slider:** `volumeSlider.max` blijft altijd 100 - backend doet de scaling
+
+### Defensive Error Handling
+
+**Probleem:** Spotify API kan tijdelijk falen (500 errors), wat leidt tot spotipy retry exhaustion en broken UI (negatieve progress_ms).
+
+**Oplossing:** Defensieve error handling in backend en frontend.
+
+**Backend (app.py):**
+- `handle_spotify_error(e, activate_cooldown=True)` - Centrale error handler
+- `is_api_in_cooldown()` / `set_api_error()` - Cooldown state management
+- `_cached_current_track` - Laatste succesvolle `/api/current` response
+
+**Cooldown mechanisme:**
+- Na server error (500/502/503/504 of "max retries"): 30 seconden cooldown
+- Tijdens cooldown: `/api/current` retourneert cached data
+- Voorkomt API call escalatie bij tijdelijke Spotify problemen
+
+**Progress validatie:**
+- Backend: `progress_ms < 0` → `0`, `progress_ms > duration_ms` → `duration_ms`
+- Frontend: Zelfde validatie + `formatTime()` toont `—:——` bij ongeldige waarden
+
+**Implementatie details:**
+34. **handle_spotify_error():** Maps SpotifyException naar Nederlandse foutmeldingen en correcte HTTP status codes (401, 403, 404, 429, 503, 500)
+35. **API cooldown:** Globals `_last_api_error_time`, `_api_cooldown_seconds=30`, `_cached_current_track`
+36. **Progress sanitization:** In `/api/current` endpoint, vóór response wordt gestuurd

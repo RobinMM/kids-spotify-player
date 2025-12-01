@@ -1530,6 +1530,10 @@ function updateProgressDisplay() {
 
 // Format time in milliseconds to mm:ss
 function formatTime(ms) {
+    // Validatie: negatief of ongeldig = toon placeholder
+    if (ms === null || ms === undefined || ms < 0 || !isFinite(ms)) {
+        return '—:——';
+    }
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -1656,9 +1660,12 @@ async function updateCurrentTrack() {
             currentTrackId = data.track.id;
             highlightCurrentTrack();
 
-            // Update progress
-            trackDuration = data.track.duration_ms;
-            trackProgress = data.track.progress_ms;
+            // Update progress (met validatie voor ongeldige waarden)
+            trackDuration = data.track.duration_ms || 0;
+            trackProgress = data.track.progress_ms || 0;
+            // Extra validatie voor edge cases
+            if (trackProgress < 0) trackProgress = 0;
+            if (trackDuration > 0 && trackProgress > trackDuration) trackProgress = trackDuration;
             lastProgressUpdate = Date.now();
             updateProgressDisplay();
         } else {

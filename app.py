@@ -37,6 +37,24 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# API error cooldown - voorkomt escalatie bij tijdelijke Spotify problemen
+_last_api_error_time = 0
+_api_cooldown_seconds = 30
+_cached_current_track = None
+
+
+def is_api_in_cooldown():
+    """Check if we're in cooldown period after API errors"""
+    global _last_api_error_time
+    return time.time() - _last_api_error_time < _api_cooldown_seconds
+
+
+def set_api_error():
+    """Mark that an API error occurred"""
+    global _last_api_error_time
+    _last_api_error_time = time.time()
+
+
 # Spotify Connect mDNS discovery
 _spotify_connect_devices = {}
 _spotify_connect_lock = Lock()
@@ -309,13 +327,50 @@ def is_device_allowed(sp=None):
         return True  # Bij error niet blokkeren
 
 
+def handle_spotify_error(e, activate_cooldown=True):
+    """Convert SpotifyException to user-friendly Dutch message and HTTP status code.
+
+    Args:
+        e: The exception
+        activate_cooldown: Whether to activate API cooldown (default True)
+
+    Returns:
+        tuple: (error_message, http_status_code)
+    """
+    error_str = str(e).lower()
+
+    # Log voor debugging
+    print(f"[Spotify Error] {e}")
+
+    # Activeer cooldown bij server errors om escalatie te voorkomen
+    if activate_cooldown and ('max retries' in error_str or '500' in error_str or
+                               '502' in error_str or '503' in error_str or '504' in error_str):
+        set_api_error()
+        print(f"[Cooldown] API cooldown geactiveerd voor {_api_cooldown_seconds} seconden")
+
+    if 'max retries' in error_str:
+        return 'Spotify reageert niet. Probeer het over een minuut opnieuw.', 503
+    elif 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
+        return 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.', 404
+    elif 'rate limit' in error_str:
+        return 'Te veel verzoeken. Even wachten...', 429
+    elif '500' in error_str or '502' in error_str or '503' in error_str or '504' in error_str:
+        return 'Spotify heeft tijdelijk problemen. Probeer het later opnieuw.', 503
+    elif '401' in error_str or 'unauthorized' in error_str:
+        return 'Sessie verlopen. Log opnieuw in.', 401
+    elif '403' in error_str or 'forbidden' in error_str:
+        return 'Geen toegang tot deze actie.', 403
+    else:
+        return 'Er ging iets mis met Spotify.', 500
+
+
 def spotify_playback_action(f):
     """Decorator for playback endpoints that handles auth, device check, and error handling"""
     @wraps(f)
     def decorated(*args, **kwargs):
         sp = get_spotify_client()
         if not sp:
-            return jsonify({'error': 'Not authenticated'}), 401
+            return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
 
         if not is_device_allowed(sp):
             return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
@@ -323,12 +378,11 @@ def spotify_playback_action(f):
         try:
             return f(sp, *args, **kwargs)
         except spotipy.exceptions.SpotifyException as e:
-            error_str = str(e).lower()
-            if 'no active device' in error_str or 'device_not_found' in error_str or 'player command failed' in error_str:
-                return jsonify({'error': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.'}), 404
-            return jsonify({'error': str(e)}), 500
+            msg, status = handle_spotify_error(e)
+            return jsonify({'error': msg}), status
         except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            print(f"[Unexpected Error] {e}")
+            return jsonify({'error': 'Er ging iets mis.'}), 500
     return decorated
 
 # Audio Device Helper Functions
@@ -1168,6 +1222,12 @@ def get_playlist_tracks(playlist_id):
 @app.route('/api/current')
 def get_current_track():
     """Get currently playing track"""
+    global _cached_current_track
+
+    # Bij cooldown: return cached data om API niet te overbelasten
+    if is_api_in_cooldown() and _cached_current_track is not None:
+        return jsonify(_cached_current_track)
+
     sp = get_spotify_client()
     if not sp:
         return jsonify({'error': 'Not authenticated'}), 401
@@ -1175,11 +1235,22 @@ def get_current_track():
     try:
         current = sp.current_playback()
         if not current or not current.get('item'):
-            return jsonify({'playing': False})
+            response_data = {'playing': False}
+            _cached_current_track = response_data
+            return jsonify(response_data)
 
         track = current['item']
         device = current.get('device', {})
-        return jsonify({
+
+        # Sanitize progress_ms - kan negatief zijn bij sync problemen
+        duration_ms = track.get('duration_ms', 0)
+        progress_ms = current.get('progress_ms', 0)
+        if progress_ms is None or progress_ms < 0:
+            progress_ms = 0
+        if duration_ms > 0 and progress_ms > duration_ms:
+            progress_ms = duration_ms
+
+        response_data = {
             'playing': current['is_playing'],
             'shuffle': current.get('shuffle_state', False),
             'volume_percent': device.get('volume_percent', 0),
@@ -1189,12 +1260,23 @@ def get_current_track():
                 'artist': ', '.join([artist['name'] for artist in track['artists']]),
                 'album': track['album']['name'],
                 'image': track['album']['images'][0]['url'] if track['album']['images'] else None,
-                'duration_ms': track['duration_ms'],
-                'progress_ms': current['progress_ms']
+                'duration_ms': duration_ms,
+                'progress_ms': progress_ms
             }
-        })
+        }
+        _cached_current_track = response_data
+        return jsonify(response_data)
+    except spotipy.exceptions.SpotifyException as e:
+        msg, status = handle_spotify_error(e)
+        # Bij error: return cached data als beschikbaar
+        if _cached_current_track is not None:
+            return jsonify(_cached_current_track)
+        return jsonify({'error': msg}), status
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Unexpected Error] /api/current: {e}")
+        if _cached_current_track is not None:
+            return jsonify(_cached_current_track)
+        return jsonify({'error': 'Er ging iets mis.'}), 500
 
 @app.route('/api/play', methods=['POST'])
 @spotify_playback_action
@@ -1292,7 +1374,7 @@ def get_devices():
     """Get available Spotify devices"""
     sp = get_spotify_client()
     if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
+        return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
 
     try:
         devices_response = sp.devices()
@@ -1307,27 +1389,35 @@ def get_devices():
             devices_response['devices'] = filtered_devices
 
         return jsonify(devices_response)
+    except spotipy.exceptions.SpotifyException as e:
+        msg, status = handle_spotify_error(e)
+        return jsonify({'error': msg}), status
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Unexpected Error] /api/devices: {e}")
+        return jsonify({'error': 'Er ging iets mis.'}), 500
 
 @app.route('/api/transfer-playback', methods=['POST'])
 def transfer_playback():
     """Transfer playback to a device"""
     sp = get_spotify_client()
     if not sp:
-        return jsonify({'error': 'Not authenticated'}), 401
+        return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
 
     data = request.get_json()
     device_id = data.get('device_id')
 
     if not device_id:
-        return jsonify({'error': 'No device ID provided'}), 400
+        return jsonify({'error': 'Geen apparaat opgegeven.'}), 400
 
     try:
         sp.transfer_playback(device_id, force_play=True)
         return jsonify({'success': True})
+    except spotipy.exceptions.SpotifyException as e:
+        msg, status = handle_spotify_error(e)
+        return jsonify({'error': msg}), status
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"[Unexpected Error] /api/transfer-playback: {e}")
+        return jsonify({'error': 'Er ging iets mis.'}), 500
 
 @app.route('/api/transfer-playback-local', methods=['POST'])
 def transfer_playback_local():
