@@ -271,7 +271,13 @@ def get_spotify_client():
         token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
         session['token_info'] = token_info
 
-    return spotipy.Spotify(auth=token_info['access_token'])
+    # Disable spotipy retries - our cooldown system handles errors
+    return spotipy.Spotify(
+        auth=token_info['access_token'],
+        retries=0,
+        status_retries=0,
+        requests_timeout=10
+    )
 
 def find_device_by_name(devices: list, name: str) -> dict:
     """Find a Spotify device by name with case-insensitive + fuzzy matching.
@@ -1542,13 +1548,19 @@ def activate_local_device():
 
         print(f"[ZeroConf] Activation successful (status 101)")
 
-        # STAP 3: Poll API (5x met 1s interval)
+        # STAP 3: Poll API (3x met 2s interval, cooldown aware)
         print(f"[ZeroConf] Step 3: Polling Spotify API for device...")
         spotify_device_id = None
 
-        for attempt in range(5):
-            time.sleep(1)
-            print(f"[ZeroConf] Poll attempt {attempt + 1}/5...")
+        for attempt in range(3):
+            time.sleep(2)
+
+            # Skip API call als we in cooldown zitten
+            if is_api_in_cooldown():
+                print(f"[ZeroConf] API in cooldown, skipping poll {attempt + 1}/3")
+                continue
+
+            print(f"[ZeroConf] Poll attempt {attempt + 1}/3...")
 
             try:
                 devices_response = sp.devices()
@@ -1582,7 +1594,7 @@ def activate_local_device():
         else:
             return jsonify({
                 'success': True,
-                'message': 'Device geactiveerd, maar niet gevonden in Spotify na 5 pogingen',
+                'message': 'Device geactiveerd, maar niet gevonden in Spotify na 3 pogingen',
                 'warning': 'Probeer handmatig te transferen'
             })
 

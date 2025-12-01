@@ -1803,26 +1803,60 @@ function stopDevicePolling() {
     }
 }
 
-// Load Spotify devices
+// Load Spotify devices (API + local mDNS)
 async function loadDevices() {
     try {
-        const response = await fetch('/api/devices');
-        const data = await response.json();
+        // Fetch both Spotify API devices and local mDNS devices in parallel
+        const [apiResponse, localResponse] = await Promise.all([
+            fetch('/api/devices'),
+            fetch('/api/spotify-connect/local')
+        ]);
+
+        const apiData = await apiResponse.json();
+        const localData = await localResponse.json();
 
         const devicesList = document.getElementById('devices-list');
         devicesList.innerHTML = '';
 
-        const devices = data.devices || [];
+        const apiDevices = apiData.devices || [];
+        const localDevices = localData.devices || [];
 
-        if (devices.length === 0) {
+        // Filter local devices: only show if NOT already in API devices (match on name)
+        const apiDeviceNames = apiDevices.map(d => d.name.toLowerCase());
+        const filteredLocalDevices = localDevices.filter(localDevice => {
+            const localName = (localDevice.remote_name || localDevice.name).toLowerCase();
+            return !apiDeviceNames.some(apiName =>
+                apiName.includes(localName) || localName.includes(apiName)
+            );
+        });
+
+        // Check if we have any devices to show
+        if (apiDevices.length === 0 && filteredLocalDevices.length === 0) {
             devicesList.innerHTML = '<div class="empty-state">Geen apparaten gevonden</div>';
             return;
         }
 
-        devices.forEach(device => {
+        // Render API devices
+        apiDevices.forEach(device => {
             const deviceDiv = createDeviceElement(device);
             devicesList.appendChild(deviceDiv);
         });
+
+        // Render filtered local devices (if any)
+        if (filteredLocalDevices.length > 0) {
+            // Add separator if there are also API devices
+            if (apiDevices.length > 0) {
+                const separator = document.createElement('div');
+                separator.className = 'device-separator';
+                separator.innerHTML = '<span>Lokaal netwerk</span>';
+                devicesList.appendChild(separator);
+            }
+
+            filteredLocalDevices.forEach(device => {
+                const deviceDiv = createLocalDeviceElement(device);
+                devicesList.appendChild(deviceDiv);
+            });
+        }
     } catch (error) {
         console.error('Error loading devices:', error);
         document.getElementById('devices-list').innerHTML = '<div class="empty-state">Fout bij laden van apparaten</div>';
