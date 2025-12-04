@@ -20,53 +20,42 @@ A kid-friendly Spotify player built with Flask and JavaScript. Designed for use 
 - Device security (only allowed devices can control playback)
 - In-app updates from GitHub releases
 
-## Requirements
+## Installation
 
-- Python 3.7+
-- Spotify Premium account
-- Spotify Developer credentials
+### Prerequisites
 
-## Setup
+1. **Raspberry Pi** with Raspberry Pi OS (Lite or Desktop)
+2. **SSH enabled** and connected to your network
+3. **Spotify Premium** account
+4. **Spotify Developer App** - Create at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard):
+   - Click "Create App"
+   - Set Redirect URI to: `http://127.0.0.1:5000/callback`
+   - Note your **Client ID** and **Client Secret**
 
-### 1. Spotify Developer Account
+### One-Command Install
 
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Create a new app
-3. Note your **Client ID** and **Client Secret**
-4. Add `http://127.0.0.1:5000/callback` to Redirect URIs
-
-### 2. Installation
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy config template
-cp .env.example .env
-```
-
-### 3. Configuration
-
-Fill in `.env` with your credentials:
-
-```env
-SPOTIFY_CLIENT_ID=your_client_id
-SPOTIFY_CLIENT_SECRET=your_client_secret
-SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/callback
-FLASK_SECRET_KEY=random_string
-
-# Device security (optional, comma-separated for multiple)
-# Empty = all devices allowed
-SPOTIFY_DEVICE_NAME=DESKTOP-PC,RaspberryPi
-```
-
-### 4. Start
+SSH into your Raspberry Pi and run:
 
 ```bash
-python app.py
+curl -sSL https://raw.githubusercontent.com/RobinMM/kids-spotify-player/main/install.sh | bash
 ```
 
-Open: **http://localhost:5000**
+The installer will:
+- Detect your OS (Lite or Desktop)
+- Install all required packages
+- Set up Spotify Connect (librespot)
+- Configure kiosk mode for touchscreen
+- Guide you through Spotify credentials setup
+
+After installation, reboot to start in kiosk mode: `sudo reboot`
+
+### First Login
+
+**Important**: The first Spotify login must be done on the Pi itself.
+
+1. Open browser on the Pi: `http://127.0.0.1:5000`
+2. Log in with your Spotify Premium account
+3. Done! The app will remember your credentials.
 
 ## Usage
 
