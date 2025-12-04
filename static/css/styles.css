@@ -2001,3 +2001,175 @@ body[data-theme="dark"] .pin-key:hover {
     font-size: 16px;
     color: var(--text-secondary);
 }
+
+/* =============================================================================
+   Update Button & Modal Styles
+   ============================================================================= */
+
+/* Update button in action row */
+.btn-action-update {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+}
+
+.btn-action-update:hover {
+    transform: scale(1.02);
+    filter: brightness(1.1);
+}
+
+.btn-action-update:active {
+    transform: scale(0.98);
+}
+
+.btn-action-update .icon {
+    fill: white;
+}
+
+/* Update confirmation modal */
+.modal-update {
+    max-width: 400px;
+}
+
+.update-version-info {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.version-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.version-row:not(:last-child) {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.version-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.version-value {
+    font-weight: 600;
+    font-family: monospace;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.version-value.version-new {
+    color: #38ef7d;
+}
+
+.update-release-notes {
+    max-height: 150px;
+    overflow-y: auto;
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+}
+
+.update-release-notes:empty {
+    display: none;
+}
+
+/* Update Progress Overlay */
+.update-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(10px);
+}
+
+.update-overlay.hidden {
+    display: none;
+}
+
+.update-overlay-content {
+    text-align: center;
+    color: white;
+    max-width: 400px;
+    padding: 40px;
+}
+
+.update-spinner {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 24px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top: 4px solid #38ef7d;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.update-overlay h2 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: white;
+}
+
+.update-overlay p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 24px;
+}
+
+.update-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.update-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #11998e, #38ef7d);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* Error state */
+.update-overlay.error .update-spinner {
+    border-top-color: #ff6b6b;
+    animation: none;
+}
+
+.update-overlay.error h2 {
+    color: #ff6b6b;
+}
+
+#btn-update-retry {
+    margin-top: 16px;
+}
+
+#btn-update-retry.hidden {
+    display: none;
+}
+
+/* Spinning animation for button loading state */
+.icon.spinning {
+    animation: spin 1s linear infinite;
+}

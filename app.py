@@ -2030,6 +2030,273 @@ def bluetooth_forget_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+# =============================================================================
+# System Update Endpoints
+# =============================================================================
+
+def get_github_repo_info():
+    """Extract owner and repo from git remote URL"""
+    try:
+        result = subprocess.run(
+            ['git', 'remote', 'get-url', 'origin'],
+            capture_output=True, text=True, timeout=10,
+            cwd=os.path.dirname(os.path.abspath(__file__))
+        )
+        if result.returncode == 0:
+            url = result.stdout.strip()
+            # Parse https://github.com/owner/repo.git or git@github.com:owner/repo.git
+            if 'github.com' in url:
+                if url.startswith('git@'):
+                    # git@github.com:owner/repo.git
+                    match = re.search(r'github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$', url)
+                else:
+                    # https://github.com/owner/repo.git
+                    match = re.search(r'github\.com/([^/]+)/([^/]+?)(?:\.git)?$', url)
+                if match:
+                    return match.group(1), match.group(2)
+    except Exception as e:
+        print(f"[Update] Error getting repo info: {e}")
+    return None, None
+
+
+def get_current_version():
+    """Get current version from git tag or version file"""
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    version_file = os.path.expanduser('~/.config/spotify-player/version.txt')
+
+    # Try version file first
+    if os.path.exists(version_file):
+        try:
+            with open(version_file, 'r') as f:
+                return f.read().strip()
+        except:
+            pass
+
+    # Fallback to git describe
+    try:
+        result = subprocess.run(
+            ['git', 'describe', '--tags', '--abbrev=0'],
+            capture_output=True, text=True, timeout=10, cwd=app_dir
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+
+    # Fallback to commit hash
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, timeout=10, cwd=app_dir
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except:
+        pass
+
+    return 'onbekend'
+
+
+def save_version(version):
+    """Save version to file"""
+    config_dir = os.path.expanduser('~/.config/spotify-player')
+    os.makedirs(config_dir, exist_ok=True)
+    version_file = os.path.join(config_dir, 'version.txt')
+    with open(version_file, 'w') as f:
+        f.write(version)
+
+
+@app.route('/api/system/check-update', methods=['GET'])
+def check_update():
+    """Check if a newer version is available on GitHub"""
+    owner, repo = get_github_repo_info()
+    if not owner or not repo:
+        return jsonify({
+            'error': 'Kan repository informatie niet ophalen'
+        }), 500
+
+    current_version = get_current_version()
+
+    try:
+        # Fetch latest release from GitHub API
+        response = requests.get(
+            f'https://api.github.com/repos/{owner}/{repo}/releases/latest',
+            headers={'Accept': 'application/vnd.github.v3+json'},
+            timeout=10
+        )
+
+        if response.status_code == 404:
+            # No releases yet, fall back to commit comparison
+            return check_update_by_commits(current_version)
+
+        response.raise_for_status()
+        release_data = response.json()
+
+        latest_version = release_data.get('tag_name', 'onbekend')
+        release_notes = release_data.get('body', '')
+        release_name = release_data.get('name', latest_version)
+
+        # Compare versions
+        available = latest_version != current_version and latest_version != 'onbekend'
+
+        return jsonify({
+            'available': available,
+            'current_version': current_version,
+            'latest_version': latest_version,
+            'release_name': release_name,
+            'release_notes': release_notes
+        })
+
+    except requests.RequestException as e:
+        print(f"[Update] GitHub API error: {e}")
+        # Fallback to commit comparison
+        return check_update_by_commits(current_version)
+
+
+def check_update_by_commits(current_version):
+    """Fallback: check for updates by comparing git commits"""
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+
+    try:
+        # Fetch latest from origin
+        subprocess.run(
+            ['git', 'fetch', 'origin', 'main'],
+            capture_output=True, timeout=30, cwd=app_dir
+        )
+
+        # Get local HEAD
+        local_result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, timeout=10, cwd=app_dir
+        )
+        local_hash = local_result.stdout.strip() if local_result.returncode == 0 else ''
+
+        # Get origin/main HEAD
+        remote_result = subprocess.run(
+            ['git', 'rev-parse', 'origin/main'],
+            capture_output=True, text=True, timeout=10, cwd=app_dir
+        )
+        remote_hash = remote_result.stdout.strip() if remote_result.returncode == 0 else ''
+
+        available = local_hash != remote_hash and local_hash and remote_hash
+
+        return jsonify({
+            'available': available,
+            'current_version': current_version,
+            'latest_version': remote_hash[:7] if available else current_version,
+            'release_name': 'Nieuwe versie beschikbaar' if available else '',
+            'release_notes': ''
+        })
+
+    except Exception as e:
+        print(f"[Update] Git comparison error: {e}")
+        return jsonify({
+            'available': False,
+            'current_version': current_version,
+            'latest_version': current_version,
+            'release_name': '',
+            'release_notes': '',
+            'error': 'Kon niet controleren op updates'
+        })
+
+
+@app.route('/api/system/update', methods=['POST'])
+def system_update():
+    """Perform system update: git pull, pip install, restart service"""
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Get target version from request (optional)
+    data = request.get_json() or {}
+    target_version = data.get('version')
+
+    try:
+        # Save current commit for rollback
+        current_commit_result = subprocess.run(
+            ['git', 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, timeout=10, cwd=app_dir
+        )
+        if current_commit_result.returncode != 0:
+            return jsonify({'error': 'Kon huidige versie niet bepalen'}), 500
+
+        rollback_commit = current_commit_result.stdout.strip()
+
+        # Fetch all tags and updates
+        fetch_result = subprocess.run(
+            ['git', 'fetch', '--tags', 'origin', 'main'],
+            capture_output=True, text=True, timeout=60, cwd=app_dir
+        )
+        if fetch_result.returncode != 0:
+            return jsonify({
+                'error': 'Git fetch mislukt',
+                'details': fetch_result.stderr
+            }), 500
+
+        # Checkout specific version or pull latest
+        if target_version and target_version.startswith('v'):
+            # Checkout specific tag
+            checkout_result = subprocess.run(
+                ['git', 'checkout', target_version],
+                capture_output=True, text=True, timeout=30, cwd=app_dir
+            )
+            if checkout_result.returncode != 0:
+                return jsonify({
+                    'error': f'Git checkout naar {target_version} mislukt',
+                    'details': checkout_result.stderr
+                }), 500
+        else:
+            # Reset to origin/main
+            reset_result = subprocess.run(
+                ['git', 'reset', '--hard', 'origin/main'],
+                capture_output=True, text=True, timeout=30, cwd=app_dir
+            )
+            if reset_result.returncode != 0:
+                return jsonify({
+                    'error': 'Git reset mislukt',
+                    'details': reset_result.stderr
+                }), 500
+
+        # Install Python dependencies
+        pip_result = subprocess.run(
+            ['pip', 'install', '-r', 'requirements.txt', '--break-system-packages'],
+            capture_output=True, text=True, timeout=300, cwd=app_dir
+        )
+        if pip_result.returncode != 0:
+            # Rollback on pip failure
+            print(f"[Update] Pip install failed, rolling back to {rollback_commit}")
+            subprocess.run(
+                ['git', 'reset', '--hard', rollback_commit],
+                capture_output=True, timeout=30, cwd=app_dir
+            )
+            return jsonify({
+                'error': 'Pip install mislukt - wijzigingen teruggedraaid',
+                'details': pip_result.stderr
+            }), 500
+
+        # Save new version
+        new_version = target_version if target_version else get_current_version()
+        save_version(new_version)
+
+        # Schedule service restart (give time for response to be sent)
+        def restart_service():
+            time.sleep(1)
+            subprocess.run(['systemctl', '--user', 'restart', 'spotify-player'])
+
+        restart_thread = Thread(target=restart_service, daemon=True)
+        restart_thread.start()
+
+        return jsonify({
+            'success': True,
+            'message': 'Update geïnstalleerd, app wordt herstart...',
+            'version': new_version
+        })
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Update timeout - probeer opnieuw'}), 500
+    except Exception as e:
+        print(f"[Update] Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     # Check if credentials are set
     if not os.getenv('SPOTIFY_CLIENT_ID') or not os.getenv('SPOTIFY_CLIENT_SECRET'):

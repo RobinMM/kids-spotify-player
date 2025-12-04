@@ -331,7 +331,7 @@
                         </div>
                     </div>
                     <hr class="other-divider">
-                    <!-- Action buttons row: Cache + Refresh -->
+                    <!-- Action buttons row: Cache + Refresh + Update -->
                     <div class="action-buttons-row">
                         <button id="btn-refresh-playlists" class="btn-action">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
@@ -344,6 +344,12 @@
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
                             <span>Refresh Interface</span>
+                        </button>
+                        <button id="btn-update" class="btn-action btn-action-update">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8h1.5z"/>
+                            </svg>
+                            <span>Bijwerken</span>
                         </button>
                     </div>
                     <hr class="other-divider">
@@ -456,6 +462,41 @@
             <div class="modal-buttons">
                 <button id="btn-cancel-settings-pin" class="btn-modal btn-cancel">Annuleren</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Update Confirmation Modal -->
+    <div id="update-modal" class="modal hidden">
+        <div class="modal-content modal-update">
+            <h2>Update beschikbaar</h2>
+            <div class="update-version-info">
+                <div class="version-row">
+                    <span class="version-label">Huidige versie:</span>
+                    <span class="version-value" id="update-current-version">-</span>
+                </div>
+                <div class="version-row">
+                    <span class="version-label">Nieuwe versie:</span>
+                    <span class="version-value version-new" id="update-new-version">-</span>
+                </div>
+            </div>
+            <div class="update-release-notes" id="update-release-notes"></div>
+            <div class="modal-buttons">
+                <button id="btn-cancel-update" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-confirm-update" class="btn-modal btn-primary">Bijwerken</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Progress Overlay -->
+    <div id="update-progress-overlay" class="update-overlay hidden">
+        <div class="update-overlay-content">
+            <div class="update-spinner"></div>
+            <h2 id="update-status-title">Bijwerken...</h2>
+            <p id="update-status-message">Even geduld alsjeblieft</p>
+            <div class="update-progress-bar">
+                <div class="update-progress-fill" id="update-progress-fill"></div>
+            </div>
+            <button id="btn-update-retry" class="btn-modal btn-primary hidden">Opnieuw proberen</button>
         </div>
     </div>
 

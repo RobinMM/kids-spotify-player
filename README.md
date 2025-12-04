@@ -1,22 +1,26 @@
 # Kids Spotify Player
 
-Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen voor gebruik op een Raspberry Pi met touchscreen.
+A kid-friendly Spotify player built with Flask and JavaScript. Designed for use on a Raspberry Pi with touchscreen.
+
+> **Note**: This is a personal hobby project. Use at your own risk.
+> I cannot provide support for installation or configuration issues.
 
 ## Features
 
-- Spotify OAuth authenticatie
-- Playlists en gevolgde artiesten bekijken
+- Spotify OAuth authentication
+- Browse playlists and followed artists
 - Playback controls (play, pause, next, previous, shuffle)
-- Album art en track info weergave
-- Dark/Light theme met aanpasbare kleuren
-- Spotify apparaat selectie met live status
-- Lokale Spotify Connect devices via mDNS discovery (librespot/Raspotify)
-- Audio output device selectie
-- Bluetooth device pairing en connectie
-- Kindvriendelijke interface met grote knoppen
-- Apparaat beveiliging (alleen toegestane devices kunnen bedienen)
+- Album art and track info display
+- Dark/Light theme with customizable colors
+- Spotify device selection with live status
+- Local Spotify Connect devices via mDNS discovery (librespot/Raspotify)
+- Audio output device selection
+- Bluetooth device pairing and connection
+- Kid-friendly interface with large buttons
+- Device security (only allowed devices can control playback)
+- In-app updates from GitHub releases
 
-## Vereisten
+## Requirements
 
 - Python 3.7+
 - Spotify Premium account
@@ -26,37 +30,37 @@ Een kindvriendelijke Spotify-speler gebouwd met Flask en JavaScript. Ontworpen v
 
 ### 1. Spotify Developer Account
 
-1. Ga naar [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Maak een nieuwe app aan
-3. Noteer je **Client ID** en **Client Secret**
-4. Voeg `http://127.0.0.1:5000/callback` toe aan Redirect URIs
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Note your **Client ID** and **Client Secret**
+4. Add `http://127.0.0.1:5000/callback` to Redirect URIs
 
-### 2. Installatie
+### 2. Installation
 
 ```bash
-# Installeer dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# Kopieer config template
-copy .env.example .env
+# Copy config template
+cp .env.example .env
 ```
 
-### 3. Configuratie
+### 3. Configuration
 
-Vul `.env` in met je credentials:
+Fill in `.env` with your credentials:
 
 ```env
-SPOTIFY_CLIENT_ID=jouw_client_id
-SPOTIFY_CLIENT_SECRET=jouw_client_secret
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
 SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/callback
 FLASK_SECRET_KEY=random_string
 
-# Apparaat beveiliging (optioneel, comma-separated voor meerdere)
-# Leeg = alle apparaten toegestaan
-SPOTIFY_DEVICE_NAME=DESKTOP-16R31VC,RaspberryPi
+# Device security (optional, comma-separated for multiple)
+# Empty = all devices allowed
+SPOTIFY_DEVICE_NAME=DESKTOP-PC,RaspberryPi
 ```
 
-### 4. Starten
+### 4. Start
 
 ```bash
 python app.py
@@ -64,31 +68,36 @@ python app.py
 
 Open: **http://localhost:5000**
 
-## Gebruik
+## Usage
 
 ### Interface
 
-De interface heeft 3 panelen:
-- **Links**: Playlists / Artiesten (toggle)
-- **Midden**: Nummers van geselecteerde playlist
-- **Rechts**: Now playing + controls
+The interface has 3 panels:
+- **Left**: Playlists / Artists (toggle)
+- **Middle**: Tracks from selected playlist
+- **Right**: Now playing + controls
 
-### Instellingen
+### Settings
 
-Klik op de instellingenknop (drie puntjes) voor:
-- **Thema**: Kleuren en dark/light mode
-- **Apparaten**: Spotify en audio output selectie
-- **Overig**: Playlists/devices verversen, uitloggen
+Click the settings button (three dots) for:
+- **Theme**: Colors and dark/light mode
+- **Devices**: Spotify and audio output selection
+- **Bluetooth**: Pair and connect Bluetooth speakers
+- **Other**: Update app, refresh playlists, logout, shutdown
 
 ## Troubleshooting
 
-| Probleem | Oplossing |
-|----------|-----------|
-| "Credentials not found" | Controleer `.env` bestand |
-| "No active device" | Open Spotify app en start muziek |
-| "Bediening niet toegestaan" | Voeg device toe aan `SPOTIFY_DEVICE_NAME` in `.env` |
-| Playback werkt niet | Spotify Premium vereist |
+| Problem | Solution |
+|---------|----------|
+| "Credentials not found" | Check `.env` file |
+| "No active device" | Open Spotify app and start playing music |
+| "Control not allowed" | Add device to `SPOTIFY_DEVICE_NAME` in `.env` |
+| Playback not working | Spotify Premium required |
 
-## Licentie
+## Disclaimer
 
-Persoonlijk project voor educatieve doeleinden.
+This software is provided "as is", without warranty of any kind, express or implied. This is a hobby project - no support is provided for installation, configuration, or usage issues.
+
+## License
+
+Personal project for educational purposes.

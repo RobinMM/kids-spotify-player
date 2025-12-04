@@ -438,6 +438,12 @@ const cancelShutdownBtn = document.getElementById('btn-cancel-shutdown');
 const rebootModal = document.getElementById('reboot-modal');
 const confirmRebootBtn = document.getElementById('btn-confirm-reboot');
 const cancelRebootBtn = document.getElementById('btn-cancel-reboot');
+const updateBtn = document.getElementById('btn-update');
+const updateModal = document.getElementById('update-modal');
+const confirmUpdateBtn = document.getElementById('btn-confirm-update');
+const cancelUpdateBtn = document.getElementById('btn-cancel-update');
+const updateProgressOverlay = document.getElementById('update-progress-overlay');
+const updateRetryBtn = document.getElementById('btn-update-retry');
 const openSettingsBtn = document.getElementById('btn-open-settings');
 const settingsModal = document.getElementById('settings-modal');
 const volumeSlider = document.getElementById('volume-slider');
@@ -602,6 +608,25 @@ function setupEventListeners() {
     cancelShutdownBtn.addEventListener('click', hideShutdownModal);
     confirmRebootBtn.addEventListener('click', confirmReboot);
     cancelRebootBtn.addEventListener('click', hideRebootModal);
+
+    // Update button and modal event listeners
+    if (updateBtn) {
+        updateBtn.addEventListener('click', checkForUpdate);
+    }
+    if (confirmUpdateBtn) {
+        confirmUpdateBtn.addEventListener('click', performUpdate);
+    }
+    if (cancelUpdateBtn) {
+        cancelUpdateBtn.addEventListener('click', hideUpdateModal);
+    }
+    if (updateRetryBtn) {
+        updateRetryBtn.addEventListener('click', performUpdate);
+    }
+    if (updateModal) {
+        updateModal.addEventListener('click', (e) => {
+            if (e.target === updateModal) hideUpdateModal();
+        });
+    }
 
     // Settings modal event listeners
     openSettingsBtn.addEventListener('click', showSettingsModal);
@@ -3012,5 +3037,197 @@ function setupPinProtectionToggle() {
             }
         });
     }
+}
+
+// ============================================
+// UPDATE FUNCTIONALITY
+// ============================================
+
+let pendingUpdateVersion = null;
+
+async function checkForUpdate() {
+    // Show loading state on button
+    if (updateBtn) {
+        updateBtn.disabled = true;
+        updateBtn.innerHTML = `
+            <svg class="icon spinning" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            <span>Controleren...</span>
+        `;
+    }
+
+    try {
+        const response = await fetch('/api/system/check-update');
+        const data = await response.json();
+
+        if (data.error) {
+            showToast(data.error, 'error');
+            resetUpdateButton();
+            return;
+        }
+
+        if (!data.available) {
+            showToast(`Applicatie is up-to-date (${data.current_version})`, 'info');
+            resetUpdateButton();
+            return;
+        }
+
+        // Show update modal with version info
+        pendingUpdateVersion = data.latest_version;
+        document.getElementById('update-current-version').textContent = data.current_version;
+        document.getElementById('update-new-version').textContent = data.latest_version;
+
+        const releaseNotes = document.getElementById('update-release-notes');
+        if (data.release_notes) {
+            releaseNotes.textContent = data.release_notes;
+            releaseNotes.style.display = 'block';
+        } else {
+            releaseNotes.style.display = 'none';
+        }
+
+        showUpdateModal();
+        resetUpdateButton();
+
+    } catch (error) {
+        console.error('Update check error:', error);
+        showToast('Kon niet controleren op updates', 'error');
+        resetUpdateButton();
+    }
+}
+
+function resetUpdateButton() {
+    if (updateBtn) {
+        updateBtn.disabled = false;
+        updateBtn.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8h1.5z"/>
+            </svg>
+            <span>Bijwerken</span>
+        `;
+    }
+}
+
+function showUpdateModal() {
+    if (updateModal) {
+        updateModal.classList.remove('hidden');
+    }
+}
+
+function hideUpdateModal() {
+    if (updateModal) {
+        updateModal.classList.add('hidden');
+    }
+    pendingUpdateVersion = null;
+}
+
+async function performUpdate() {
+    hideUpdateModal();
+    showUpdateProgress('Bijwerken...', 'Downloaden van updates...');
+    setUpdateProgress(10);
+
+    try {
+        const response = await fetch('/api/system/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version: pendingUpdateVersion })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+            showUpdateError(data.error || 'Update mislukt');
+            return;
+        }
+
+        // Update started successfully, now wait for service restart
+        setUpdateProgress(50);
+        setUpdateStatus('Herstarten...', 'Service wordt herstart...');
+
+        // Poll health endpoint until server is back
+        await waitForServerRestart();
+
+    } catch (error) {
+        console.error('Update error:', error);
+        showUpdateError('Update mislukt: ' + error.message);
+    }
+}
+
+function showUpdateProgress(title, message) {
+    if (updateProgressOverlay) {
+        updateProgressOverlay.classList.remove('hidden', 'error');
+        document.getElementById('update-status-title').textContent = title;
+        document.getElementById('update-status-message').textContent = message;
+        document.getElementById('btn-update-retry').classList.add('hidden');
+    }
+}
+
+function setUpdateStatus(title, message) {
+    document.getElementById('update-status-title').textContent = title;
+    document.getElementById('update-status-message').textContent = message;
+}
+
+function setUpdateProgress(percent) {
+    const fill = document.getElementById('update-progress-fill');
+    if (fill) {
+        fill.style.width = percent + '%';
+    }
+}
+
+function showUpdateError(message) {
+    if (updateProgressOverlay) {
+        updateProgressOverlay.classList.add('error');
+        document.getElementById('update-status-title').textContent = 'Update mislukt';
+        document.getElementById('update-status-message').textContent = message;
+        document.getElementById('btn-update-retry').classList.remove('hidden');
+    }
+}
+
+function hideUpdateProgress() {
+    if (updateProgressOverlay) {
+        updateProgressOverlay.classList.add('hidden');
+    }
+}
+
+async function waitForServerRestart() {
+    const maxAttempts = 60;
+    const interval = 1000;
+    let attempts = 0;
+
+    setUpdateProgress(60);
+
+    while (attempts < maxAttempts) {
+        attempts++;
+
+        // Update progress bar
+        const progress = 60 + Math.floor((attempts / maxAttempts) * 35);
+        setUpdateProgress(Math.min(progress, 95));
+
+        try {
+            const response = await fetch('/api/health', {
+                method: 'GET',
+                cache: 'no-store'
+            });
+
+            if (response.ok) {
+                // Server is back!
+                setUpdateProgress(100);
+                setUpdateStatus('Voltooid!', 'Update succesvol geïnstalleerd');
+
+                // Reload page after short delay
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+                return;
+            }
+        } catch (e) {
+            // Server not yet available, continue polling
+        }
+
+        await new Promise(resolve => setTimeout(resolve, interval));
+    }
+
+    // Timeout reached
+    showUpdateError('Server reageert niet na update. Ververs de pagina handmatig.');
 }
 
