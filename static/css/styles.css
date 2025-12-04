@@ -2173,3 +2173,64 @@ body[data-theme="dark"] .pin-key:hover {
 .icon.spinning {
     animation: spin 1s linear infinite;
 }
+
+/* ============================================
+   LANGUAGE SELECTION (Tab 5)
+   ============================================ */
+
+.language-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+}
+
+.language-toggle {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.language-toggle-btn {
+    flex: 1;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    padding: 24px 16px;
+    cursor: pointer;
+    font-family: 'Quicksand', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.language-toggle-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.language-toggle-btn.active {
+    background: var(--accent-color);
+    transform: scale(1.05);
+}
+
+.language-toggle-btn .lang-flag {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.language-toggle-btn .lang-name {
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.9;
+}

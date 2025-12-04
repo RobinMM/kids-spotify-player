@@ -327,7 +327,7 @@ async function loadTracksById(playlistId) {
         return;
     }
 
-    tracksContainer.innerHTML = '<div class="loading">Nummers laden...</div>';
+    tracksContainer.innerHTML = `<div class="loading">${t('loading.tracks')}</div>`;
 
     try {
         const response = await fetch(`/api/playlist/${playlistId}`);
@@ -336,7 +336,7 @@ async function loadTracksById(playlistId) {
         renderTracks(tracks);
     } catch (error) {
         console.error('Error loading tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -352,7 +352,7 @@ async function loadArtistTracksById(artistId) {
     const tracksPanelTitle = document.getElementById('tracks-panel-title');
     if (tracksPanelTitle) {
         tracksPanelTitle.style.display = 'block';
-        tracksPanelTitle.textContent = 'Top Nummers';
+        tracksPanelTitle.textContent = t('panel.topTracks');
     }
 
     const cacheKey = CACHE_KEYS.ARTIST_TRACKS_PREFIX + artistId;
@@ -362,7 +362,7 @@ async function loadArtistTracksById(artistId) {
         return;
     }
 
-    tracksContainer.innerHTML = '<div class="loading">Top nummers laden...</div>';
+    tracksContainer.innerHTML = `<div class="loading">${t('loading.topTracks')}</div>`;
 
     try {
         const response = await fetch(`/api/artist/${artistId}/top-tracks`);
@@ -371,7 +371,7 @@ async function loadArtistTracksById(artistId) {
         renderTracks(tracks);
     } catch (error) {
         console.error('Error loading artist tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -397,7 +397,7 @@ async function loadAlbumTracksById(albumId) {
         return;
     }
 
-    tracksContainer.innerHTML = '<div class="loading">Nummers laden...</div>';
+    tracksContainer.innerHTML = `<div class="loading">${t('loading.tracks')}</div>`;
 
     try {
         const response = await fetch(`/api/album/${albumId}/tracks`);
@@ -406,7 +406,7 @@ async function loadAlbumTracksById(albumId) {
         renderAlbumTracks(tracks);
     } catch (error) {
         console.error('Error loading album tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -507,14 +507,14 @@ function setupLongPress(button, duration, onComplete) {
 }
 
 // Render audio devices list helper
-function renderAudioDevices(container, data, errorMessage = 'Fout bij laden van audio apparaten') {
+function renderAudioDevices(container, data, errorMessage = null) {
     if (data.error) {
-        container.innerHTML = `<div class="empty-state">${errorMessage}</div>`;
+        container.innerHTML = `<div class="empty-state">${errorMessage || t('error.loadAudioDevices')}</div>`;
         return;
     }
 
     if (!data.devices || data.devices.length === 0) {
-        container.innerHTML = '<div class="empty-state">Geen audio apparaten gevonden</div>';
+        container.innerHTML = `<div class="empty-state">${t('empty.noAudioDevices')}</div>`;
         return;
     }
 
@@ -666,6 +666,14 @@ function setupEventListeners() {
     if (albumBackBtn) {
         albumBackBtn.addEventListener('click', goBackToAlbums);
     }
+
+    // Language toggle event listeners
+    document.querySelectorAll('.language-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const lang = btn.getAttribute('data-lang');
+            setLanguage(lang);
+        });
+    });
 }
 
 // Load playlists
@@ -686,7 +694,7 @@ async function loadPlaylists() {
         renderPlaylists(playlists);
     } catch (error) {
         console.error('Error loading playlists:', error);
-        playlistsContainer.innerHTML = '<div class="empty-state">Fout bij laden van playlists</div>';
+        playlistsContainer.innerHTML = `<div class="empty-state">${t('error.loadPlaylists')}</div>`;
     }
 }
 
@@ -695,7 +703,7 @@ function renderPlaylists(playlists) {
     playlistsContainer.innerHTML = '';
 
     if (playlists.length === 0) {
-        playlistsContainer.innerHTML = '<div class="empty-state">Geen playlists gevonden</div>';
+        playlistsContainer.innerHTML = `<div class="empty-state">${t('empty.noPlaylists')}</div>`;
         return;
     }
 
@@ -838,7 +846,7 @@ async function loadArtists() {
         renderArtists(artists);
     } catch (error) {
         console.error('Error loading artists:', error);
-        playlistsContainer.innerHTML = '<div class="empty-state">Fout bij laden van artiesten</div>';
+        playlistsContainer.innerHTML = `<div class="empty-state">${t('error.loadArtists')}</div>`;
     }
 }
 
@@ -847,7 +855,7 @@ function renderArtists(artists) {
     playlistsContainer.innerHTML = '';
 
     if (artists.length === 0) {
-        playlistsContainer.innerHTML = '<div class="empty-state">Geen artiesten gevonden</div>';
+        playlistsContainer.innerHTML = `<div class="empty-state">${t('empty.noArtists')}</div>`;
         return;
     }
 
@@ -927,7 +935,7 @@ async function loadArtistTracks(artistId, artistBtn) {
         updateURL();
     } catch (error) {
         console.error('Error loading artist tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -943,7 +951,7 @@ async function loadArtistAlbums(artistId) {
         return;
     }
 
-    tracksContainer.innerHTML = '<div class="loading">Albums laden...</div>';
+    tracksContainer.innerHTML = `<div class="loading">${t('loading.albums')}</div>`;
 
     try {
         const response = await fetch(`/api/artist/${artistId}/albums`);
@@ -955,7 +963,7 @@ async function loadArtistAlbums(artistId) {
         updateURL();
     } catch (error) {
         console.error('Error loading artist albums:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van albums</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadAlbums')}</div>`;
     }
 }
 
@@ -964,7 +972,7 @@ function renderAlbums(albums) {
     tracksContainer.innerHTML = '';
 
     if (albums.length === 0) {
-        tracksContainer.innerHTML = '<div class="empty-state">Geen albums gevonden</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('empty.noAlbums')}</div>`;
         return;
     }
 
@@ -1032,7 +1040,7 @@ async function loadAlbumTracks(albumId, albumName) {
         updateURL();
     } catch (error) {
         console.error('Error loading album tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -1064,7 +1072,7 @@ function renderAlbumTracks(tracks) {
     tracksContainer.innerHTML = '';
 
     if (tracks.length === 0) {
-        tracksContainer.innerHTML = '<div class="empty-state">Geen nummers gevonden</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('empty.noTracks')}</div>`;
         return;
     }
 
@@ -1212,7 +1220,7 @@ async function loadTracks(playlistId, playlistBtn) {
         updateURL();
     } catch (error) {
         console.error('Error loading tracks:', error);
-        tracksContainer.innerHTML = '<div class="empty-state">Fout bij laden van nummers</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('error.loadTracks')}</div>`;
     }
 }
 
@@ -1221,7 +1229,7 @@ function renderTracks(tracks) {
     tracksContainer.innerHTML = '';
 
     if (tracks.length === 0) {
-        tracksContainer.innerHTML = '<div class="empty-state">Geen nummers gevonden</div>';
+        tracksContainer.innerHTML = `<div class="empty-state">${t('empty.noTracks')}</div>`;
         return;
     }
 
@@ -1292,7 +1300,7 @@ async function playTrack(uri) {
 
         if (!response.ok) {
             const data = await response.json();
-            showToast(data.error || 'Er ging iets mis bij het afspelen', 'error');
+            showToast(data.error || t('error.playback'), 'error');
             return;
         }
 
@@ -1302,7 +1310,7 @@ async function playTrack(uri) {
         setTimeout(updateCurrentTrack, 500);
     } catch (error) {
         console.error('Error playing track:', error);
-        showToast('Er ging iets mis bij het afspelen', 'error');
+        showToast(t('error.playback'), 'error');
     }
 }
 
@@ -1314,7 +1322,7 @@ async function togglePlayPause() {
 
         if (!response.ok) {
             const data = await response.json();
-            showToast(data.error || 'Er ging iets mis bij het afspelen', 'error');
+            showToast(data.error || t('error.playback'), 'error');
             return;
         }
 
@@ -1322,7 +1330,7 @@ async function togglePlayPause() {
         updatePlayPauseButton();
     } catch (error) {
         console.error('Error toggling playback:', error);
-        showToast('Er ging iets mis bij het afspelen', 'error');
+        showToast(t('error.playback'), 'error');
     }
 }
 
@@ -1332,13 +1340,13 @@ async function previousTrack() {
         const response = await fetch('/api/previous', { method: 'POST' });
         if (!response.ok) {
             const data = await response.json();
-            showToast(data.error || 'Er ging iets mis bij het vorige nummer', 'error');
+            showToast(data.error || t('error.previousTrack'), 'error');
             return;
         }
         setTimeout(updateCurrentTrack, 500);
     } catch (error) {
         console.error('Error skipping to previous track:', error);
-        showToast('Er ging iets mis bij het vorige nummer', 'error');
+        showToast(t('error.previousTrack'), 'error');
     }
 }
 
@@ -1348,13 +1356,13 @@ async function nextTrack() {
         const response = await fetch('/api/next', { method: 'POST' });
         if (!response.ok) {
             const data = await response.json();
-            showToast(data.error || 'Er ging iets mis bij het volgende nummer', 'error');
+            showToast(data.error || t('error.nextTrack'), 'error');
             return;
         }
         setTimeout(updateCurrentTrack, 500);
     } catch (error) {
         console.error('Error skipping to next track:', error);
-        showToast('Er ging iets mis bij het volgende nummer', 'error');
+        showToast(t('error.nextTrack'), 'error');
     }
 }
 
@@ -1401,7 +1409,7 @@ function handleVolumeChange() {
             });
             if (!response.ok) {
                 const data = await response.json();
-                showToast(data.error || 'Fout bij volume aanpassen', 'error');
+                showToast(data.error || t('error.volume'), 'error');
             }
         } catch (error) {
             console.error('Error setting volume:', error);
@@ -1472,7 +1480,7 @@ async function saveVolumeSetting(key, value) {
         const data = await response.json();
 
         if (!response.ok) {
-            showToast(data.error || 'Fout bij opslaan', 'error');
+            showToast(data.error || t('error.save'), 'error');
         } else {
             // Update currentMaxVolume for reference and default slider
             if (data.max_volume !== undefined) {
@@ -1664,7 +1672,7 @@ async function seekToPosition(position_ms) {
 
         if (!response.ok) {
             const data = await response.json();
-            showToast(data.error || 'Fout bij positie aanpassen', 'error');
+            showToast(data.error || t('error.seek'), 'error');
             return;
         }
 
@@ -1880,7 +1888,7 @@ async function loadDevices() {
 
         // Check if we have any devices to show
         if (apiDevices.length === 0 && filteredLocalDevices.length === 0) {
-            devicesList.innerHTML = '<div class="empty-state">Geen apparaten gevonden</div>';
+            devicesList.innerHTML = `<div class="empty-state">${t('empty.noDevices')}</div>`;
             return;
         }
 
@@ -1896,7 +1904,7 @@ async function loadDevices() {
             if (apiDevices.length > 0) {
                 const separator = document.createElement('div');
                 separator.className = 'device-separator';
-                separator.innerHTML = '<span>Lokaal netwerk</span>';
+                separator.innerHTML = `<span>${t('settings.localNetwork')}</span>`;
                 devicesList.appendChild(separator);
             }
 
@@ -1907,7 +1915,7 @@ async function loadDevices() {
         }
     } catch (error) {
         console.error('Error loading devices:', error);
-        document.getElementById('devices-list').innerHTML = '<div class="empty-state">Fout bij laden van apparaten</div>';
+        document.getElementById('devices-list').innerHTML = `<div class="empty-state">${t('error.loadDevices')}</div>`;
     }
 }
 
@@ -1977,18 +1985,18 @@ async function selectLocalDevice(device) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast(`Afspelen op ${displayName}`, 'info');
+            showToast(`${t('device.playingOn')} ${displayName}`, 'info');
             loadDevices(); // Refresh device list
         } else if (data.needs_activation) {
             // Device needs ZeroConf activation
-            showToast('Device moet eerst geactiveerd worden...', 'info');
+            showToast(t('device.activating'), 'info');
             await activateLocalDevice(device);
         } else {
-            showToast(data.error || 'Fout bij selecteren device', 'error');
+            showToast(data.error || t('error.selectDevice'), 'error');
         }
     } catch (error) {
         console.error('Error selecting local device:', error);
-        showToast('Fout bij verbinden met device', 'error');
+        showToast(t('error.connectDevice'), 'error');
     }
 }
 
@@ -2012,7 +2020,7 @@ async function activateLocalDevice(device) {
             // Backend handles activation, device matching, and transfer
             if (data.spotify_device_id) {
                 // Transfer was successful
-                showToast(data.message || `Afspelen op ${displayName}`, 'info');
+                showToast(data.message || `${t('device.playingOn')} ${displayName}`, 'info');
                 loadDevices();
             } else if (data.warning) {
                 // Activation worked but device not found in Spotify
@@ -2020,15 +2028,15 @@ async function activateLocalDevice(device) {
                 loadDevices();
             } else {
                 // Activation only (no device_name was passed)
-                showToast(data.message || `${displayName} geactiveerd`, 'info');
+                showToast(data.message || `${displayName} ${t('device.activated')}`, 'info');
                 loadDevices();
             }
         } else {
-            showToast(data.error || 'Activatie mislukt', 'error');
+            showToast(data.error || t('error.activateFailed'), 'error');
         }
     } catch (error) {
         console.error('Error activating device:', error);
-        showToast('Fout bij activeren device', 'error');
+        showToast(t('error.activateDevice'), 'error');
     }
 }
 
@@ -2102,7 +2110,7 @@ async function loadAudioDevices() {
         renderAudioDevices(audioDevicesList, data);
     } catch (error) {
         console.error('Error loading audio devices:', error);
-        audioDevicesList.innerHTML = '<div class="empty-state">Fout bij laden van audio apparaten</div>';
+        audioDevicesList.innerHTML = `<div class="empty-state">${t('error.loadAudioDevices')}</div>`;
     }
 }
 
@@ -2232,11 +2240,11 @@ async function selectAudioDevice(deviceId) {
             showSuccessCheck(clickedDevice);
         } else {
             const errorData = await response.json();
-            showToast(errorData.error || 'Kon niet schakelen', 'error');
+            showToast(errorData.error || t('error.switchFailed'), 'error');
         }
     } catch (error) {
         console.error('Error switching audio device:', error);
-        showToast('Fout bij schakelen', 'error');
+        showToast(t('error.switchError'), 'error');
     } finally {
         isAudioSwitching = false;
         // Re-enable all buttons (loadAudioDevices will have refreshed the list)
@@ -2288,13 +2296,13 @@ async function confirmShutdown() {
         hideShutdownModal();
 
         if (response.ok) {
-            showToast(data.message || 'Systeem wordt uitgeschakeld...', 'info');
+            showToast(data.message || t('system.shuttingDown'), 'info');
         } else {
-            showToast(data.error || 'Er ging iets mis', 'error');
+            showToast(data.error || t('system.somethingWrong'), 'error');
         }
     } catch (error) {
         console.error('Error shutting down:', error);
-        showToast('Fout bij uitschakelen', 'error');
+        showToast(t('error.shutdown'), 'error');
     }
 }
 
@@ -2315,13 +2323,13 @@ async function confirmReboot() {
         hideRebootModal();
 
         if (response.ok) {
-            showToast(data.message || 'Systeem wordt herstart...', 'info');
+            showToast(data.message || t('system.restarting'), 'info');
         } else {
-            showToast(data.error || 'Er ging iets mis', 'error');
+            showToast(data.error || t('system.somethingWrong'), 'error');
         }
     } catch (error) {
         console.error('Error rebooting:', error);
-        showToast('Fout bij herstarten', 'error');
+        showToast(t('error.reboot'), 'error');
     }
 }
 
@@ -2434,7 +2442,7 @@ async function loadBluetoothDevices() {
     } catch (error) {
         console.error('Error loading Bluetooth devices:', error);
         document.getElementById('bt-paired-list').innerHTML =
-            '<div class="empty-state">Fout bij laden</div>';
+            `<div class="empty-state">${t('error.loadBluetooth')}</div>`;
     }
 }
 
@@ -2445,7 +2453,7 @@ function renderBluetoothDevices() {
 
     // Render paired devices
     if (bluetoothState.pairedDevices.length === 0) {
-        pairedList.innerHTML = '<div class="empty-state">Geen gekoppelde apparaten</div>';
+        pairedList.innerHTML = `<div class="empty-state">${t('empty.noPairedDevices')}</div>`;
     } else {
         pairedList.innerHTML = '';
         bluetoothState.pairedDevices.forEach(device => {
@@ -2458,8 +2466,8 @@ function renderBluetoothDevices() {
         discoveredSection.style.display = 'block';
         if (bluetoothState.discoveredDevices.length === 0) {
             discoveredList.innerHTML = bluetoothState.scanning
-                ? '<div class="loading">Zoeken naar apparaten...</div>'
-                : '<div class="empty-state">Geen apparaten gevonden</div>';
+                ? `<div class="loading">${t('loading.searching')}</div>`
+                : `<div class="empty-state">${t('empty.noDiscoveredDevices')}</div>`;
         } else {
             discoveredList.innerHTML = '';
             bluetoothState.discoveredDevices.forEach(device => {
@@ -2499,13 +2507,13 @@ function createBluetoothDeviceElement(device, isPaired) {
 
     // Forget button for paired devices
     const forgetBtn = isPaired ? `
-        <button class="btn-bt-forget" data-address="${device.address}">Vergeten</button>
+        <button class="btn-bt-forget" data-address="${device.address}">${t('bt.forget')}</button>
     ` : '';
 
     div.innerHTML = `
         <span class="device-icon">${icon}</span>
         <div class="device-info">
-            <div class="device-name">${escapeHtml(device.name || 'Onbekend apparaat')}</div>
+            <div class="device-name">${escapeHtml(device.name || t('bt.unknownDevice'))}</div>
             <div class="device-status">${statusText}</div>
         </div>
         ${spinner}
@@ -2540,11 +2548,11 @@ function getBluetoothDeviceIcon(device) {
 }
 
 function getBluetoothDeviceStatus(device, isPaired) {
-    if (device.address === bluetoothState.connectingDevice) return 'Verbinden...';
-    if (device.address === bluetoothState.pairingDevice) return 'Koppelen...';
-    if (device.connected) return 'Verbonden';
-    if (isPaired) return 'Niet verbonden';
-    return 'Beschikbaar';
+    if (device.address === bluetoothState.connectingDevice) return t('bt.connecting');
+    if (device.address === bluetoothState.pairingDevice) return t('bt.pairing');
+    if (device.connected) return t('bt.connected');
+    if (isPaired) return t('bt.notConnected');
+    return t('bt.available');
 }
 
 async function handleBluetoothDeviceClick(device, isPaired) {
@@ -2579,7 +2587,7 @@ async function startBluetoothScan() {
 
         if (response.ok && data.success) {
             bluetoothState.scanning = true;
-            showToast('Zoeken naar Bluetooth apparaten...', 'info');
+            showToast(t('bt.searchStarted'), 'info');
             updateBluetoothScanButton();
 
             // Poll more frequently during scan
@@ -2594,11 +2602,11 @@ async function startBluetoothScan() {
                 }
             }, 30000);
         } else {
-            showToast(data.error || 'Scan starten mislukt', 'error');
+            showToast(data.error || t('bt.scanFailed'), 'error');
         }
     } catch (error) {
         console.error('Error starting Bluetooth scan:', error);
-        showToast('Fout bij starten scan', 'error');
+        showToast(t('bt.startScanError'), 'error');
     }
 }
 
@@ -2624,10 +2632,10 @@ function updateBluetoothScanButton() {
 
     if (bluetoothState.scanning) {
         scanBtn.classList.add('scanning');
-        scanBtn.querySelector('span').textContent = 'Stoppen';
+        scanBtn.querySelector('span').textContent = t('settings.stop');
     } else {
         scanBtn.classList.remove('scanning');
-        scanBtn.querySelector('span').textContent = 'Scannen';
+        scanBtn.querySelector('span').textContent = t('settings.scan');
     }
 }
 
@@ -2648,7 +2656,7 @@ async function pairBluetoothDevice(address, pin = null) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast('Apparaat gekoppeld', 'info');
+            showToast(t('bt.paired'), 'info');
             // Auto-connect after pairing
             bluetoothState.pairingDevice = null;
             await connectBluetoothDevice(address);
@@ -2658,12 +2666,12 @@ async function pairBluetoothDevice(address, pin = null) {
             bluetoothState.pendingPinDevice = address;
             showPinModal(address);
         } else {
-            showToast(data.error || 'Koppelen mislukt', 'error');
+            showToast(data.error || t('bt.pairFailed'), 'error');
             bluetoothState.pairingDevice = null;
         }
     } catch (error) {
         console.error('Error pairing Bluetooth device:', error);
-        showToast('Fout bij koppelen', 'error');
+        showToast(t('bt.pairError'), 'error');
         bluetoothState.pairingDevice = null;
     }
 
@@ -2684,15 +2692,15 @@ async function connectBluetoothDevice(address) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast('Verbonden', 'info');
+            showToast(t('bt.connectedToast'), 'info');
             // Refresh audio devices too
             loadAudioDevices();
         } else {
-            showToast(data.error || 'Verbinden mislukt', 'error');
+            showToast(data.error || t('bt.connectFailed'), 'error');
         }
     } catch (error) {
         console.error('Error connecting Bluetooth device:', error);
-        showToast('Fout bij verbinden', 'error');
+        showToast(t('bt.connectError'), 'error');
     }
 
     bluetoothState.connectingDevice = null;
@@ -2713,14 +2721,14 @@ async function disconnectBluetoothDevice(address) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast('Losgekoppeld', 'info');
+            showToast(t('bt.disconnected'), 'info');
             loadAudioDevices();
         } else {
-            showToast(data.error || 'Loskoppelen mislukt', 'error');
+            showToast(data.error || t('bt.disconnectFailed'), 'error');
         }
     } catch (error) {
         console.error('Error disconnecting Bluetooth device:', error);
-        showToast('Fout bij loskoppelen', 'error');
+        showToast(t('bt.disconnectError'), 'error');
     }
 
     bluetoothState.connectingDevice = null;
@@ -2738,14 +2746,14 @@ async function forgetBluetoothDevice(address) {
         const data = await response.json();
 
         if (response.ok && data.success) {
-            showToast('Apparaat vergeten', 'info');
+            showToast(t('bt.forgotten'), 'info');
             loadAudioDevices();
         } else {
-            showToast(data.error || 'Vergeten mislukt', 'error');
+            showToast(data.error || t('bt.forgetFailed'), 'error');
         }
     } catch (error) {
         console.error('Error forgetting Bluetooth device:', error);
-        showToast('Fout bij vergeten', 'error');
+        showToast(t('bt.forgetError'), 'error');
     }
 
     loadBluetoothDevices();
@@ -2775,7 +2783,7 @@ function submitPin() {
     const address = bluetoothState.pendingPinDevice;
 
     if (!pin || !address) {
-        showToast('Voer een PIN code in', 'error');
+        showToast(t('bt.enterPin'), 'error');
         return;
     }
 
@@ -2788,7 +2796,7 @@ function showForgetModal(device) {
     const modal = document.getElementById('bt-forget-modal');
     const message = document.getElementById('bt-forget-message');
 
-    message.textContent = `Weet je zeker dat je "${device.name || 'dit apparaat'}" wilt vergeten?`;
+    message.textContent = t('modal.forgetQuestion', { name: device.name || t('bt.unknownDevice') });
     modal.classList.remove('hidden');
 
     // Store device for confirmation
@@ -3021,7 +3029,7 @@ function setupPinProtectionToggle() {
             pinProtectionEnabled = savedState === 'true';
             pinToggle.checked = pinProtectionEnabled;
             if (pinToggleLabel) {
-                pinToggleLabel.textContent = pinProtectionEnabled ? 'Ingeschakeld' : 'Uitgeschakeld';
+                pinToggleLabel.textContent = pinProtectionEnabled ? t('settings.enabled') : t('settings.disabled');
             }
         }
 
@@ -3029,7 +3037,7 @@ function setupPinProtectionToggle() {
             pinProtectionEnabled = pinToggle.checked;
             localStorage.setItem('pinProtectionEnabled', pinProtectionEnabled);
             if (pinToggleLabel) {
-                pinToggleLabel.textContent = pinProtectionEnabled ? 'Ingeschakeld' : 'Uitgeschakeld';
+                pinToggleLabel.textContent = pinProtectionEnabled ? t('settings.enabled') : t('settings.disabled');
             }
             // Reset unlocked state when enabling protection
             if (pinProtectionEnabled) {
@@ -3136,20 +3144,20 @@ async function performUpdate() {
         const data = await response.json();
 
         if (!response.ok || data.error) {
-            showUpdateError(data.error || 'Update mislukt');
+            showUpdateError(data.error || t('update.failed'));
             return;
         }
 
         // Update started successfully, now wait for service restart
         setUpdateProgress(50);
-        setUpdateStatus('Herstarten...', 'Service wordt herstart...');
+        setUpdateStatus(t('update.restarting'), t('update.serviceRestart'));
 
         // Poll health endpoint until server is back
         await waitForServerRestart();
 
     } catch (error) {
         console.error('Update error:', error);
-        showUpdateError('Update mislukt: ' + error.message);
+        showUpdateError(t('update.failed') + ': ' + error.message);
     }
 }
 
@@ -3177,7 +3185,7 @@ function setUpdateProgress(percent) {
 function showUpdateError(message) {
     if (updateProgressOverlay) {
         updateProgressOverlay.classList.add('error');
-        document.getElementById('update-status-title').textContent = 'Update mislukt';
+        document.getElementById('update-status-title').textContent = t('update.failed');
         document.getElementById('update-status-message').textContent = message;
         document.getElementById('btn-update-retry').classList.remove('hidden');
     }

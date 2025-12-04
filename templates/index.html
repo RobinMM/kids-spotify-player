@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,17 +19,17 @@
                     <svg class="toggle-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
                     </svg>
-                    <span>Playlists</span>
+                    <span data-i18n="nav.playlists">Playlists</span>
                 </button>
                 <button class="view-toggle-btn" data-view="artists">
                     <svg class="toggle-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                     </svg>
-                    <span>Artiesten</span>
+                    <span data-i18n="nav.artists">Artists</span>
                 </button>
             </div>
             <div id="playlists-container" class="scrollable">
-                <div class="loading">Playlists laden...</div>
+                <div class="loading" data-i18n="loading.playlists">Loading playlists...</div>
             </div>
         </div>
 
@@ -37,14 +37,14 @@
         <div class="panel panel-middle">
             <div class="panel-header">
                 <!-- Album back button (buiten panel-title-row zodat hij zichtbaar blijft) -->
-                <button class="back-btn" id="album-back-btn" style="display: none;" title="Terug naar albums">
+                <button class="back-btn" id="album-back-btn" style="display: none;" title="Back to albums">
                     <svg class="icon" viewBox="0 0 512 463.95" fill="currentColor">
                         <path d="M512 332.66H268.5v92.31c-.68 15.47-5.77 26.46-15.43 32.82-25.79 17.2-52.31-5.26-69.24-22.6L14.33 261.6c-19.11-17.28-19.11-41.93 0-59.21L188.71 24.42c16.06-16.39 40.56-34.09 64.36-18.21 9.66 6.35 14.75 17.34 15.43 32.81v92.31H512v201.33z"/>
                     </svg>
-                    Terug
+                    <span data-i18n="panel.back">Back</span>
                 </button>
                 <div class="panel-title-row">
-                    <h2 class="panel-title" id="tracks-panel-title">Nummers</h2>
+                    <h2 class="panel-title" id="tracks-panel-title" data-i18n="panel.tracks">Tracks</h2>
                 </div>
                 <!-- Sub-toggle for artists view: Top Nummers / Albums -->
                 <div class="artist-sub-toggle" id="artist-sub-toggle" style="display: none;">
@@ -52,19 +52,19 @@
                         <svg class="toggle-icon toggle-icon-large" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.24 16L12 15.45 7.77 18l1.12-4.81-3.73-3.23 4.92-.42L12 5l1.92 4.53 4.92.42-3.73 3.23L16.23 18z"/>
                         </svg>
-                        Top Nummers
+                        <span data-i18n="panel.topTracks">Top Tracks</span>
                     </button>
                     <button class="sub-toggle-btn" data-subview="albums">
                         <svg class="toggle-icon" viewBox="0 0 512 512" fill="currentColor">
                             <path d="M490.673,128.006V85.34c0-11.782-9.551-21.333-21.333-21.333h-21.333V21.34c0-11.782-9.551-21.333-21.333-21.333H85.34c-11.782,0-21.333,9.551-21.333,21.333v42.667H42.673c-11.782,0-21.333,9.551-21.333,21.333v42.667c-13.358,0-23.43,12.136-20.968,25.265l64,341.333c1.892,10.09,10.702,17.402,20.968,17.402h341.333c10.266,0,19.076-7.312,20.968-17.402l64-341.333C514.103,140.142,504.031,128.006,490.673,128.006z M106.673,42.673H405.34v21.333H106.673V42.673z M64.006,106.673H85.34h341.333h21.333v21.333h-384V106.673z M408.968,469.34H103.045l-56-298.667h417.923L408.968,469.34z M256.007,426.673c69.77,0,128-46.583,128-106.667c0-60.084-58.23-106.667-128-106.667s-128,46.583-128,106.667C128.006,380.091,186.237,426.673,256.007,426.673z M256.007,256.007c48.037,0,85.333,29.836,85.333,64s-37.297,64-85.333,64s-85.333-29.836-85.333-64S207.97,256.007,256.007,256.007z"/>
                         </svg>
-                        Albums
+                        <span data-i18n="panel.albums">Albums</span>
                     </button>
                 </div>
             </div>
             <div class="scrollable">
                 <div id="tracks-container">
-                    <div class="empty-state">Selecteer een playlist</div>
+                    <div class="empty-state" data-i18n="empty.selectPlaylist">Select a playlist</div>
                 </div>
             </div>
         </div>
@@ -75,14 +75,14 @@
                 <svg class="panel-title-icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                 </svg>
-                Nu aan het spelen
+                <span data-i18n="panel.nowPlaying">Now playing</span>
             </h2>
 
             <!-- Album Art & Track Info -->
             <div id="now-playing" class="now-playing">
                 <div class="album-art-container">
                     <img id="album-art" src="" alt="Album Art" class="album-art hidden">
-                    <div id="no-track" class="no-track">Geen muziek</div>
+                    <div id="no-track" class="no-track" data-i18n="panel.noMusic">No music</div>
                 </div>
                 <div id="track-info" class="track-info">
                     <div class="track-name" id="track-name">-</div>
@@ -106,22 +106,22 @@
             <!-- Playback Controls -->
             <div class="controls-section">
                 <div class="playback-controls">
-                    <button id="btn-previous" class="control-btn btn-previous" title="Vorige">
+                    <button id="btn-previous" class="control-btn btn-previous" title="Previous" data-i18n="control.previous" data-i18n-attr="title">
                         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
                         </svg>
                     </button>
-                    <button id="btn-play-pause" class="control-btn btn-play-pause btn-large" title="Afspelen/Pauzeren">
+                    <button id="btn-play-pause" class="control-btn btn-play-pause btn-large" title="Play/Pause" data-i18n="control.playPause" data-i18n-attr="title">
                         <svg class="icon" id="play-pause-icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M8 5v14l11-7z"/>
                         </svg>
                     </button>
-                    <button id="btn-next" class="control-btn btn-next" title="Volgende">
+                    <button id="btn-next" class="control-btn btn-next" title="Next" data-i18n="control.next" data-i18n-attr="title">
                         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
                         </svg>
                     </button>
-                    <button id="btn-shuffle" class="control-btn btn-shuffle" title="Shuffle">
+                    <button id="btn-shuffle" class="control-btn btn-shuffle" title="Shuffle" data-i18n="control.shuffle" data-i18n-attr="title">
                         <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
                         </svg>
@@ -139,7 +139,7 @@
 
             <!-- Settings Button -->
             <div class="settings-button-container">
-                <button id="btn-open-settings" class="btn-open-settings" title="Instellingen">
+                <button id="btn-open-settings" class="btn-open-settings" title="Settings" data-i18n="control.settings" data-i18n-attr="title">
                     <svg class="icon" viewBox="0 0 24 24">
                         <defs>
                             <linearGradient id="dots-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -165,25 +165,31 @@
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
                     </svg>
-                    <span>Thema</span>
+                    <span data-i18n="settings.theme">Theme</span>
                 </button>
                 <button class="tab-btn" data-tab="devices">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                     </svg>
-                    <span>Apparaten</span>
+                    <span data-i18n="settings.devices">Devices</span>
                 </button>
                 <button class="tab-btn" data-tab="bluetooth">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
                     </svg>
-                    <span>Bluetooth</span>
+                    <span data-i18n="settings.bluetooth">Bluetooth</span>
                 </button>
                 <button class="tab-btn" data-tab="other">
                     <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>
                     </svg>
-                    <span>Overig</span>
+                    <span data-i18n="settings.other">Other</span>
+                </button>
+                <button class="tab-btn" data-tab="language">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/>
+                    </svg>
+                    <span data-i18n="settings.language">Language</span>
                 </button>
             </div>
 
@@ -264,15 +270,15 @@
                 <!-- Tab 2: Devices (Audio + Spotify combined) -->
                 <div id="tab-devices" class="tab-panel">
                     <div class="audio-device-selection">
-                        <label class="toggle-label">Computer geluid:</label>
+                        <label class="toggle-label" data-i18n="settings.computerAudio">Computer audio:</label>
                         <div id="audio-devices-list" class="devices-list">
-                            <div class="loading">Apparaten laden...</div>
+                            <div class="loading" data-i18n="loading.devices">Loading devices...</div>
                         </div>
                     </div>
                     <div class="device-selection">
-                        <label class="toggle-label">Spotify afspelen op:</label>
+                        <label class="toggle-label" data-i18n="settings.spotifyPlayOn">Play Spotify on:</label>
                         <div id="devices-list" class="devices-list">
-                            <div class="loading">Apparaten laden...</div>
+                            <div class="loading" data-i18n="loading.devices">Loading devices...</div>
                         </div>
                     </div>
                 </div>
@@ -284,19 +290,19 @@
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
-                            <span>Scannen</span>
+                            <span data-i18n="settings.scan">Scan</span>
                         </button>
                     </div>
                     <div class="bluetooth-section">
-                        <h4>Gekoppelde apparaten</h4>
+                        <h4 data-i18n="settings.pairedDevices">Paired devices</h4>
                         <div id="bt-paired-list" class="devices-list">
-                            <div class="empty-state">Geen gekoppelde apparaten</div>
+                            <div class="empty-state" data-i18n="empty.noPairedDevices">No paired devices</div>
                         </div>
                     </div>
                     <div class="bluetooth-section" id="bt-discovered-section" style="display: none;">
-                        <h4>Gevonden apparaten</h4>
+                        <h4 data-i18n="settings.discoveredDevices">Discovered devices</h4>
                         <div id="bt-discovered-list" class="devices-list">
-                            <div class="empty-state">Geen apparaten gevonden</div>
+                            <div class="empty-state" data-i18n="empty.noDiscoveredDevices">No devices found</div>
                         </div>
                     </div>
                 </div>
@@ -305,29 +311,29 @@
                 <div id="tab-other" class="tab-panel">
                     <!-- Volume Settings -->
                     <div class="setting-group">
-                        <label class="setting-label">Standaard Volume</label>
+                        <label class="setting-label" data-i18n="settings.defaultVolume">Default Volume</label>
                         <div class="default-volume-control">
                             <input type="range" id="default-volume-slider" min="10" max="80" value="50">
                             <span id="default-volume-value">50%</span>
                         </div>
-                        <p class="setting-hint">Volume bij opstarten en wisselen van apparaat</p>
+                        <p class="setting-hint" data-i18n="settings.volumeHintDefault">Volume at startup and device switch</p>
                     </div>
                     <div class="setting-group">
-                        <label class="setting-label">Maximum Volume</label>
+                        <label class="setting-label" data-i18n="settings.maxVolume">Maximum Volume</label>
                         <div class="default-volume-control">
                             <input type="range" id="max-volume-slider" min="30" max="100" value="80">
                             <span id="max-volume-value">80%</span>
                         </div>
-                        <p class="setting-hint">Volume kan niet hoger dan dit</p>
+                        <p class="setting-hint" data-i18n="settings.volumeHintMax">Volume cannot exceed this</p>
                     </div>
                     <div class="setting-group">
-                        <label class="setting-label">PIN Beveiliging</label>
+                        <label class="setting-label" data-i18n="settings.pinProtection">PIN Protection</label>
                         <div class="toggle-switch-container">
                             <label class="toggle-switch">
                                 <input type="checkbox" id="pin-protection-toggle" checked>
                                 <span class="toggle-slider"></span>
                             </label>
-                            <span class="toggle-switch-label">Ingeschakeld</span>
+                            <span class="toggle-switch-label" data-i18n="settings.enabled">Enabled</span>
                         </div>
                     </div>
                     <hr class="other-divider">
@@ -337,19 +343,19 @@
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
                             </svg>
-                            <span>Cache Verwijderen</span>
+                            <span data-i18n="settings.clearCache">Clear Cache</span>
                         </button>
                         <button id="btn-refresh-interface" class="btn-action">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
-                            <span>Refresh Interface</span>
+                            <span data-i18n="settings.refreshInterface">Refresh Interface</span>
                         </button>
                         <button id="btn-update" class="btn-action btn-action-update">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1-2.73 2.71-2.73 7.08 0 9.79 2.73 2.71 7.15 2.71 9.88 0C18.32 15.65 19 14.08 19 12.1h2c0 1.98-.88 4.55-2.64 6.29-3.51 3.48-9.21 3.48-12.72 0-3.5-3.47-3.53-9.11-.02-12.58 3.51-3.47 9.14-3.47 12.65 0L21 3v7.12zM12.5 8v4.25l3.5 2.08-.72 1.21L11 13V8h1.5z"/>
                             </svg>
-                            <span>Bijwerken</span>
+                            <span data-i18n="settings.update">Update</span>
                         </button>
                     </div>
                     <hr class="other-divider">
@@ -359,20 +365,36 @@
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
                             </svg>
-                            <span>Uitloggen</span>
+                            <span data-i18n="settings.logout">Log out</span>
                         </button>
                         <button id="btn-reboot" class="btn-system btn-system-warning">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
                             </svg>
-                            <span>Herstarten</span>
+                            <span data-i18n="settings.reboot">Restart</span>
                         </button>
                         <button id="btn-shutdown" class="btn-system btn-system-danger">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/>
                             </svg>
-                            <span>Afsluiten</span>
+                            <span data-i18n="settings.shutdown">Shut down</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Language -->
+                <div id="tab-language" class="tab-panel">
+                    <div class="language-selection">
+                        <div class="language-toggle">
+                            <button class="language-toggle-btn" data-lang="en">
+                                <span class="lang-flag">EN</span>
+                                <span class="lang-name">English</span>
+                            </button>
+                            <button class="language-toggle-btn" data-lang="nl">
+                                <span class="lang-flag">NL</span>
+                                <span class="lang-name">Nederlands</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -382,11 +404,11 @@
     <!-- Shutdown Confirmation Modal -->
     <div id="shutdown-modal" class="modal hidden">
         <div class="modal-content">
-            <h2>Weet je het zeker?</h2>
-            <p>Wil je de muziekspeler uitschakelen?</p>
+            <h2 data-i18n="modal.confirmTitle">Are you sure?</h2>
+            <p data-i18n="modal.shutdownQuestion">Do you want to shut down the music player?</p>
             <div class="modal-buttons">
-                <button id="btn-confirm-shutdown" class="btn-modal btn-danger">Ja, uitschakelen</button>
-                <button id="btn-cancel-shutdown" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-confirm-shutdown" class="btn-modal btn-danger" data-i18n="modal.shutdownConfirm">Yes, shut down</button>
+                <button id="btn-cancel-shutdown" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -394,11 +416,11 @@
     <!-- Reboot Confirmation Modal -->
     <div id="reboot-modal" class="modal hidden">
         <div class="modal-content">
-            <h2>Weet je het zeker?</h2>
-            <p>Wil je de muziekspeler herstarten?</p>
+            <h2 data-i18n="modal.confirmTitle">Are you sure?</h2>
+            <p data-i18n="modal.rebootQuestion">Do you want to restart the music player?</p>
             <div class="modal-buttons">
-                <button id="btn-confirm-reboot" class="btn-modal btn-warning">Ja, herstarten</button>
-                <button id="btn-cancel-reboot" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-confirm-reboot" class="btn-modal btn-warning" data-i18n="modal.rebootConfirm">Yes, restart</button>
+                <button id="btn-cancel-reboot" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -406,12 +428,12 @@
     <!-- Bluetooth PIN Modal -->
     <div id="bt-pin-modal" class="modal hidden">
         <div class="modal-content modal-small">
-            <h2 id="bt-pin-title">PIN code invoeren</h2>
-            <p>Voer de PIN code in voor dit apparaat:</p>
+            <h2 id="bt-pin-title" data-i18n="modal.pinRequired">PIN required</h2>
+            <p data-i18n="modal.enterPinDevice">Enter the PIN code for this device:</p>
             <input type="text" id="bt-pin-input" class="pin-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="0000">
             <div class="modal-buttons">
-                <button id="btn-cancel-pin" class="btn-modal btn-cancel">Annuleren</button>
-                <button id="btn-submit-pin" class="btn-modal btn-primary">Koppelen</button>
+                <button id="btn-cancel-pin" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-submit-pin" class="btn-modal btn-primary" data-i18n="modal.pair">Pair</button>
             </div>
         </div>
     </div>
@@ -419,11 +441,11 @@
     <!-- Bluetooth Forget Confirmation Modal -->
     <div id="bt-forget-modal" class="modal hidden">
         <div class="modal-content modal-small">
-            <h2>Apparaat vergeten?</h2>
-            <p id="bt-forget-message">Weet je zeker dat je dit apparaat wilt vergeten?</p>
+            <h2 data-i18n="modal.forgetDevice">Forget device?</h2>
+            <p id="bt-forget-message">Are you sure you want to forget this device?</p>
             <div class="modal-buttons">
-                <button id="btn-cancel-forget" class="btn-modal btn-cancel">Annuleren</button>
-                <button id="btn-confirm-forget" class="btn-modal btn-danger">Vergeten</button>
+                <button id="btn-cancel-forget" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-confirm-forget" class="btn-modal btn-danger" data-i18n="modal.forgetConfirm">Forget</button>
             </div>
         </div>
     </div>
@@ -431,7 +453,7 @@
     <!-- Settings PIN Modal -->
     <div id="settings-pin-modal" class="modal hidden">
         <div class="modal-content modal-small">
-            <h2>PIN vereist</h2>
+            <h2 data-i18n="modal.pinRequired">PIN required</h2>
             <div class="pin-display">
                 <span class="pin-dot"></span>
                 <span class="pin-dot"></span>
@@ -440,7 +462,7 @@
                 <span class="pin-dot"></span>
                 <span class="pin-dot"></span>
             </div>
-            <div id="settings-pin-error" class="pin-error hidden">Onjuiste PIN</div>
+            <div id="settings-pin-error" class="pin-error hidden" data-i18n="modal.pinIncorrect">Incorrect PIN</div>
             <div class="pin-keypad">
                 <button class="pin-key" data-key="1">1</button>
                 <button class="pin-key" data-key="2">2</button>
@@ -460,7 +482,7 @@
                 </button>
             </div>
             <div class="modal-buttons">
-                <button id="btn-cancel-settings-pin" class="btn-modal btn-cancel">Annuleren</button>
+                <button id="btn-cancel-settings-pin" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -468,21 +490,21 @@
     <!-- Update Confirmation Modal -->
     <div id="update-modal" class="modal hidden">
         <div class="modal-content modal-update">
-            <h2>Update beschikbaar</h2>
+            <h2 data-i18n="modal.updateAvailable">Update available</h2>
             <div class="update-version-info">
                 <div class="version-row">
-                    <span class="version-label">Huidige versie:</span>
+                    <span class="version-label" data-i18n="modal.currentVersion">Current version:</span>
                     <span class="version-value" id="update-current-version">-</span>
                 </div>
                 <div class="version-row">
-                    <span class="version-label">Nieuwe versie:</span>
+                    <span class="version-label" data-i18n="modal.newVersion">New version:</span>
                     <span class="version-value version-new" id="update-new-version">-</span>
                 </div>
             </div>
             <div class="update-release-notes" id="update-release-notes"></div>
             <div class="modal-buttons">
-                <button id="btn-cancel-update" class="btn-modal btn-cancel">Annuleren</button>
-                <button id="btn-confirm-update" class="btn-modal btn-primary">Bijwerken</button>
+                <button id="btn-cancel-update" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-confirm-update" class="btn-modal btn-primary" data-i18n="modal.updateConfirm">Update</button>
             </div>
         </div>
     </div>
@@ -491,15 +513,16 @@
     <div id="update-progress-overlay" class="update-overlay hidden">
         <div class="update-overlay-content">
             <div class="update-spinner"></div>
-            <h2 id="update-status-title">Bijwerken...</h2>
-            <p id="update-status-message">Even geduld alsjeblieft</p>
+            <h2 id="update-status-title" data-i18n="update.updating">Updating...</h2>
+            <p id="update-status-message" data-i18n="update.downloading">Downloading updates...</p>
             <div class="update-progress-bar">
                 <div class="update-progress-fill" id="update-progress-fill"></div>
             </div>
-            <button id="btn-update-retry" class="btn-modal btn-primary hidden">Opnieuw proberen</button>
+            <button id="btn-update-retry" class="btn-modal btn-primary hidden">Retry</button>
         </div>
     </div>
 
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

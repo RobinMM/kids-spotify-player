@@ -42,6 +42,137 @@ _last_api_error_time = 0
 _api_cooldown_seconds = 30
 _cached_current_track = None
 
+# ============================================
+# TRANSLATIONS (i18n)
+# ============================================
+TRANSLATIONS = {
+    'en': {
+        # Error messages
+        'error.not_logged_in': 'Not logged in',
+        'error.no_device': 'No Spotify device active. Select a device in settings.',
+        'error.device_not_allowed': 'Playback not allowed on this device',
+        'error.playback_failed': 'Playback failed',
+        'error.transfer_failed': 'Transfer failed',
+        'error.device_not_found': 'Device not found',
+        'error.rate_limit': 'Too many requests. Please wait a moment.',
+        'error.server_error': 'Spotify server error. Please try again later.',
+        'error.unknown': 'An unexpected error occurred',
+
+        # Bluetooth messages
+        'bt.not_available': 'Bluetooth not available on this system',
+        'bt.scan_started': 'Bluetooth scan started',
+        'bt.scan_stopped': 'Bluetooth scan stopped',
+        'bt.scan_failed': 'Failed to start scan',
+        'bt.pair_success': 'Device paired successfully',
+        'bt.pair_failed': 'Pairing failed',
+        'bt.pair_needs_pin': 'PIN required',
+        'bt.connect_success': 'Connected',
+        'bt.connect_failed': 'Connection failed',
+        'bt.disconnect_success': 'Disconnected',
+        'bt.disconnect_failed': 'Disconnect failed',
+        'bt.forget_success': 'Device forgotten',
+        'bt.forget_failed': 'Forget failed',
+
+        # System messages
+        'system.shutdown': 'System is shutting down...',
+        'system.reboot': 'System is restarting...',
+        'system.shutdown_failed': 'Shutdown failed',
+        'system.reboot_failed': 'Restart failed',
+
+        # Update messages
+        'update.checking': 'Checking for updates...',
+        'update.up_to_date': 'Application is up-to-date',
+        'update.available': 'Update available',
+        'update.downloading': 'Downloading update...',
+        'update.installing': 'Installing update...',
+        'update.success': 'Update installed successfully. Restarting...',
+        'update.failed': 'Update failed',
+        'update.no_releases': 'No releases found',
+
+        # Device activation
+        'device.activation_success': 'Device activated',
+        'device.activation_failed': 'Device activation failed',
+        'device.needs_activation': 'Device needs to be activated first',
+
+        # PIN
+        'pin.incorrect': 'Incorrect PIN',
+
+        # Bluetooth address
+        'bt.address_required': 'Bluetooth address is required',
+
+        # Audio
+        'audio.volume_failed': 'Could not adjust volume',
+    },
+    'nl': {
+        # Error messages
+        'error.not_logged_in': 'Niet ingelogd',
+        'error.no_device': 'Geen Spotify apparaat actief. Selecteer een apparaat in het instellingen menu.',
+        'error.device_not_allowed': 'Afspelen niet toegestaan op dit apparaat',
+        'error.playback_failed': 'Afspelen mislukt',
+        'error.transfer_failed': 'Overdracht mislukt',
+        'error.device_not_found': 'Apparaat niet gevonden',
+        'error.rate_limit': 'Te veel verzoeken. Even geduld alsjeblieft.',
+        'error.server_error': 'Spotify server fout. Probeer het later opnieuw.',
+        'error.unknown': 'Er is een onverwachte fout opgetreden',
+
+        # Bluetooth messages
+        'bt.not_available': 'Bluetooth niet beschikbaar op dit systeem',
+        'bt.scan_started': 'Bluetooth scan gestart',
+        'bt.scan_stopped': 'Bluetooth scan gestopt',
+        'bt.scan_failed': 'Scan starten mislukt',
+        'bt.pair_success': 'Apparaat gekoppeld',
+        'bt.pair_failed': 'Koppelen mislukt',
+        'bt.pair_needs_pin': 'PIN vereist',
+        'bt.connect_success': 'Verbonden',
+        'bt.connect_failed': 'Verbinden mislukt',
+        'bt.disconnect_success': 'Losgekoppeld',
+        'bt.disconnect_failed': 'Loskoppelen mislukt',
+        'bt.forget_success': 'Apparaat vergeten',
+        'bt.forget_failed': 'Vergeten mislukt',
+
+        # System messages
+        'system.shutdown': 'Systeem wordt uitgeschakeld...',
+        'system.reboot': 'Systeem wordt herstart...',
+        'system.shutdown_failed': 'Uitschakelen mislukt',
+        'system.reboot_failed': 'Herstarten mislukt',
+
+        # Update messages
+        'update.checking': 'Controleren op updates...',
+        'update.up_to_date': 'Applicatie is up-to-date',
+        'update.available': 'Update beschikbaar',
+        'update.downloading': 'Update downloaden...',
+        'update.installing': 'Update installeren...',
+        'update.success': 'Update succesvol geïnstalleerd. Herstarten...',
+        'update.failed': 'Update mislukt',
+        'update.no_releases': 'Geen releases gevonden',
+
+        # Device activation
+        'device.activation_success': 'Apparaat geactiveerd',
+        'device.activation_failed': 'Apparaat activeren mislukt',
+        'device.needs_activation': 'Apparaat moet eerst geactiveerd worden',
+
+        # PIN
+        'pin.incorrect': 'Onjuiste PIN',
+
+        # Bluetooth address
+        'bt.address_required': 'Bluetooth adres is verplicht',
+
+        # Audio
+        'audio.volume_failed': 'Kon volume niet aanpassen',
+    }
+}
+
+
+def get_user_language():
+    """Get the current user's language preference from session"""
+    return session.get('language', 'en')
+
+
+def t(key):
+    """Get translated string for the given key"""
+    lang = get_user_language()
+    return TRANSLATIONS.get(lang, {}).get(key) or TRANSLATIONS['en'].get(key) or key
+
 
 def is_api_in_cooldown():
     """Check if we're in cooldown period after API errors"""
@@ -376,10 +507,10 @@ def spotify_playback_action(f):
     def decorated(*args, **kwargs):
         sp = get_spotify_client()
         if not sp:
-            return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
+            return jsonify({'error': t('error.not_logged_in')}), 401
 
         if not is_device_allowed(sp):
-            return jsonify({'error': 'Bediening niet toegestaan op dit apparaat.'}), 403
+            return jsonify({'error': t('error.device_not_allowed')}), 403
 
         try:
             return f(sp, *args, **kwargs)
@@ -388,7 +519,7 @@ def spotify_playback_action(f):
             return jsonify({'error': msg}), status
         except Exception as e:
             print(f"[Unexpected Error] {e}")
-            return jsonify({'error': 'Er ging iets mis.'}), 500
+            return jsonify({'error': t('error.unknown')}), 500
     return decorated
 
 # Audio Device Helper Functions
@@ -1282,7 +1413,7 @@ def get_current_track():
         print(f"[Unexpected Error] /api/current: {e}")
         if _cached_current_track is not None:
             return jsonify(_cached_current_track)
-        return jsonify({'error': 'Er ging iets mis.'}), 500
+        return jsonify({'error': t('error.unknown')}), 500
 
 @app.route('/api/play', methods=['POST'])
 @spotify_playback_action
@@ -1380,7 +1511,7 @@ def get_devices():
     """Get available Spotify devices"""
     sp = get_spotify_client()
     if not sp:
-        return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
+        return jsonify({'error': t('error.not_logged_in')}), 401
 
     try:
         devices_response = sp.devices()
@@ -1400,20 +1531,20 @@ def get_devices():
         return jsonify({'error': msg}), status
     except Exception as e:
         print(f"[Unexpected Error] /api/devices: {e}")
-        return jsonify({'error': 'Er ging iets mis.'}), 500
+        return jsonify({'error': t('error.unknown')}), 500
 
 @app.route('/api/transfer-playback', methods=['POST'])
 def transfer_playback():
     """Transfer playback to a device"""
     sp = get_spotify_client()
     if not sp:
-        return jsonify({'error': 'Niet ingelogd bij Spotify.'}), 401
+        return jsonify({'error': t('error.not_logged_in')}), 401
 
     data = request.get_json()
     device_id = data.get('device_id')
 
     if not device_id:
-        return jsonify({'error': 'Geen apparaat opgegeven.'}), 400
+        return jsonify({'error': t('error.device_not_found')}), 400
 
     try:
         sp.transfer_playback(device_id, force_play=True)
@@ -1423,7 +1554,7 @@ def transfer_playback():
         return jsonify({'error': msg}), status
     except Exception as e:
         print(f"[Unexpected Error] /api/transfer-playback: {e}")
-        return jsonify({'error': 'Er ging iets mis.'}), 500
+        return jsonify({'error': t('error.unknown')}), 500
 
 @app.route('/api/transfer-playback-local', methods=['POST'])
 def transfer_playback_local():
@@ -1613,7 +1744,7 @@ def system_shutdown():
     """Shutdown the Raspberry Pi"""
     try:
         subprocess.Popen(['sudo', 'poweroff'])
-        return jsonify({'success': True, 'message': 'Systeem wordt uitgeschakeld...'})
+        return jsonify({'success': True, 'message': t('system.shutdown')})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1622,7 +1753,7 @@ def system_reboot():
     """Reboot the Raspberry Pi"""
     try:
         subprocess.Popen(['sudo', 'reboot'])
-        return jsonify({'success': True, 'message': 'Systeem wordt herstart...'})
+        return jsonify({'success': True, 'message': t('system.reboot')})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1752,7 +1883,7 @@ def audio_volume():
     if set_system_volume(actual_volume):
         return jsonify({'success': True, 'volume': slider_value})
     else:
-        return jsonify({'error': 'Kon volume niet aanpassen'}), 500
+        return jsonify({'error': t('audio.volume_failed')}), 500
 
 
 @app.route('/api/settings/volume', methods=['GET', 'POST'])
@@ -1810,6 +1941,24 @@ def default_volume_setting():
     return volume_settings()
 
 
+@app.route('/api/settings/language', methods=['GET', 'POST'])
+def language_settings():
+    """Get or set user language preference (en/nl)."""
+    if request.method == 'GET':
+        return jsonify({'language': get_user_language()})
+
+    # POST: Set language
+    data = request.get_json()
+    lang = data.get('language', 'en')
+
+    # Validate language
+    if lang not in ['en', 'nl']:
+        lang = 'en'
+
+    session['language'] = lang
+    return jsonify({'language': lang, 'success': True})
+
+
 @app.route('/api/spotify-connect/local')
 def get_local_spotify_devices():
     """Get Spotify Connect devices discovered via mDNS on local network"""
@@ -1856,7 +2005,7 @@ def verify_pin():
 
     if pin == correct_pin:
         return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Onjuiste PIN'}), 401
+    return jsonify({'success': False, 'error': t('pin.incorrect')}), 401
 
 
 # =============================================================================
@@ -1867,7 +2016,7 @@ def verify_pin():
 def get_bluetooth_devices_endpoint():
     """Get all Bluetooth devices (paired + discovered)"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     try:
         data = bluetooth_manager.get_all_devices()
@@ -1881,7 +2030,7 @@ def get_bluetooth_devices_endpoint():
 def bluetooth_scan_endpoint():
     """Start or stop Bluetooth device scanning"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     data = request.get_json() or {}
     action = data.get('action', 'start')
@@ -1907,11 +2056,11 @@ def bluetooth_scan_endpoint():
 def bluetooth_pair_endpoint():
     """Pair with a Bluetooth device"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     data = request.get_json()
     if not data or 'address' not in data:
-        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+        return jsonify({'error': t('bt.address_required')}), 400
 
     address = data['address']
     pin = data.get('pin')
@@ -1922,7 +2071,7 @@ def bluetooth_pair_endpoint():
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Apparaat gekoppeld'
+                'message': t('bt.pair_success')
             })
         elif isinstance(result, dict) and result.get('needs_pin'):
             return jsonify({
@@ -1933,7 +2082,7 @@ def bluetooth_pair_endpoint():
         else:
             return jsonify({
                 'success': False,
-                'error': result or 'Koppeling mislukt'
+                'error': result or t('bt.pair_failed')
             }), 400
     except Exception as e:
         print(f"[BT] Pair error: {e}")
@@ -1944,11 +2093,11 @@ def bluetooth_pair_endpoint():
 def bluetooth_connect_endpoint():
     """Connect to a paired Bluetooth device"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     data = request.get_json()
     if not data or 'address' not in data:
-        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+        return jsonify({'error': t('bt.address_required')}), 400
 
     address = data['address']
 
@@ -1958,12 +2107,12 @@ def bluetooth_connect_endpoint():
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Verbonden'
+                'message': t('bt.connect_success')
             })
         else:
             return jsonify({
                 'success': False,
-                'error': error or 'Verbinden mislukt'
+                'error': error or t('bt.connect_failed')
             }), 400
     except Exception as e:
         print(f"[BT] Connect error: {e}")
@@ -1974,11 +2123,11 @@ def bluetooth_connect_endpoint():
 def bluetooth_disconnect_endpoint():
     """Disconnect from a Bluetooth device"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     data = request.get_json()
     if not data or 'address' not in data:
-        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+        return jsonify({'error': t('bt.address_required')}), 400
 
     address = data['address']
 
@@ -1988,12 +2137,12 @@ def bluetooth_disconnect_endpoint():
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Losgekoppeld'
+                'message': t('bt.disconnect_success')
             })
         else:
             return jsonify({
                 'success': False,
-                'error': error or 'Loskoppelen mislukt'
+                'error': error or t('bt.disconnect_failed')
             }), 400
     except Exception as e:
         print(f"[BT] Disconnect error: {e}")
@@ -2004,11 +2153,11 @@ def bluetooth_disconnect_endpoint():
 def bluetooth_forget_endpoint():
     """Remove/unpair a Bluetooth device"""
     if not bluetooth_manager:
-        return jsonify({'error': 'Bluetooth niet beschikbaar op dit platform'}), 503
+        return jsonify({'error': t('bt.not_available')}), 503
 
     data = request.get_json()
     if not data or 'address' not in data:
-        return jsonify({'error': 'Bluetooth adres is verplicht'}), 400
+        return jsonify({'error': t('bt.address_required')}), 400
 
     address = data['address']
 
@@ -2018,12 +2167,12 @@ def bluetooth_forget_endpoint():
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Apparaat vergeten'
+                'message': t('bt.forget_success')
             })
         else:
             return jsonify({
                 'success': False,
-                'error': error or 'Vergeten mislukt'
+                'error': error or t('bt.forget_failed')
             }), 400
     except Exception as e:
         print(f"[BT] Forget error: {e}")
