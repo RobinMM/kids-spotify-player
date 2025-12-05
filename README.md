@@ -90,6 +90,9 @@ Click the settings button (three dots) for:
 
 This software is provided "as is", without warranty of any kind, express or implied. This is a hobby project - no support is provided for installation, configuration, or usage issues.
 
+---
+Built with [Claude Code](https://claude.ai/code) 🤖
+
 ## License
 
 Personal project for educational purposes.
