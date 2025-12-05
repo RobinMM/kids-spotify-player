@@ -1024,7 +1024,8 @@ svg.icon {
 
 /* Settings Modal Specific */
 .modal-settings {
-    max-width: 850px;
+    width: 100%;
+    max-width: 950px;
     padding: 30px;
 }
 
@@ -1066,19 +1067,30 @@ svg.icon {
     height: 24px;
 }
 
-/* Tab Navigation */
+/* Settings Layout - Vertical Tabs */
+.settings-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    min-height: 500px;
+    max-height: 700px;
+}
+
+/* Tab Navigation - Vertical Sidebar */
 .tab-navigation {
     display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    padding-right: 20px;
+    border-right: 1px solid var(--border-color);
 }
 
 .tab-btn {
-    flex: 1;
     background: transparent;
     border: none;
-    border-bottom: 3px solid var(--border-color);
-    padding: 18px 16px;
+    border-left: 3px solid transparent;
+    padding: 14px 20px;
     font-family: 'Quicksand', 'Segoe UI', sans-serif;
     font-size: 19px;
     font-weight: 600;
@@ -1087,13 +1099,15 @@ svg.icon {
     transition: all 0.2s;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
+    justify-content: flex-start;
+    gap: 10px;
+    text-align: left;
+    border-radius: 0 8px 8px 0;
 }
 
 .tab-icon {
-    width: 26px;
-    height: 26px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
 }
 
@@ -1104,13 +1118,43 @@ svg.icon {
 
 .tab-btn.active {
     color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
+    border-left-color: var(--primary-color);
+    background: var(--hover-bg);
+}
+
+/* Tab separator between standard and protected tabs */
+.tab-separator {
+    height: 2px;
+    background: var(--text-tertiary);
+    margin: 16px 0;
+}
+
+/* Lock icon for protected tabs */
+.tab-lock-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-tertiary);
+    margin-left: auto;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+/* Hide lock icon when settings are unlocked */
+.tab-btn.unlocked .tab-lock-icon {
+    display: none;
+}
+
+/* Hide all lock icons when PIN protection is disabled */
+body.pin-disabled .tab-lock-icon {
+    display: none;
 }
 
 /* Tab Content */
 .tab-content-wrapper {
+    flex: 1;
     max-height: 700px;
     overflow-y: auto;
+    padding-left: 20px;
 }
 
 .tab-panel {
@@ -1122,8 +1166,34 @@ svg.icon {
     animation: fadeIn 0.3s ease-in;
 }
 
-/* Center content in Overig tab */
-#tab-other.active {
+/* Center content in System tab */
+#tab-system.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 15px;
+}
+
+/* System tab toggles row */
+.system-toggles-row {
+    display: flex;
+    gap: 40px;
+}
+
+.system-toggles-row .toggle-switch-container {
+    display: flex;
+    align-items: center;
+}
+
+.toggle-label-inline {
+    margin-left: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Volume tab layout */
+#tab-volume.active {
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1606,12 +1676,16 @@ svg.icon {
 }
 
 .btn-system:hover {
-    transform: translateY(-2px);
+    filter: brightness(1.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .btn-system:active {
-    transform: translateY(0);
+    filter: brightness(0.95);
+}
+
+.btn-system-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
 }
 
 .btn-system-warning {

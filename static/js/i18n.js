@@ -67,14 +67,16 @@ const translations = {
         // Settings tabs
         'settings.theme': 'Theme',
         'settings.devices': 'Devices',
+        'settings.volume': 'Volume',
         'settings.bluetooth': 'Bluetooth',
-        'settings.other': 'Other',
+        'settings.system': 'System',
         'settings.language': 'Language',
 
         // Settings - Devices tab
         'settings.computerAudio': 'Computer audio:',
         'settings.spotifyPlayOn': 'Play Spotify on:',
         'settings.localNetwork': 'Local network',
+        'settings.showLocalDevices': 'Show local devices',
 
         // Settings - Bluetooth tab
         'settings.scan': 'Scan',
@@ -257,14 +259,16 @@ const translations = {
         // Settings tabs
         'settings.theme': 'Thema',
         'settings.devices': 'Apparaten',
+        'settings.volume': 'Volume',
         'settings.bluetooth': 'Bluetooth',
-        'settings.other': 'Overig',
+        'settings.system': 'Systeem',
         'settings.language': 'Taal',
 
         // Settings - Devices tab
         'settings.computerAudio': 'Computer geluid:',
         'settings.spotifyPlayOn': 'Spotify afspelen op:',
         'settings.localNetwork': 'Lokaal netwerk',
+        'settings.showLocalDevices': 'Toon lokale apparaten',
 
         // Settings - Bluetooth tab
         'settings.scan': 'Scannen',

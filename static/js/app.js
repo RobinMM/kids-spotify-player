@@ -559,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reopenTab) {
         localStorage.removeItem('reopenSettingsTab');
         settingsUnlocked = true; // Was already unlocked before refresh
+        updateProtectedTabsLockState(); // Update lock icon visibility
         showSettingsModal();
         switchTab(reopenTab);
     }
@@ -596,7 +597,7 @@ function setupEventListeners() {
     const refreshInterfaceBtn = document.getElementById('btn-refresh-interface');
     if (refreshInterfaceBtn) {
         refreshInterfaceBtn.addEventListener('click', () => {
-            localStorage.setItem('reopenSettingsTab', 'other');
+            localStorage.setItem('reopenSettingsTab', 'system');
             location.reload();
         });
     }
@@ -645,6 +646,9 @@ function setupEventListeners() {
             switchTab(tabName);
         });
     });
+
+    // Local devices toggle setup
+    setupLocalDevicesToggle();
 
     // View toggle (Playlists / Artists) event listeners
     document.querySelectorAll('.view-toggle-btn').forEach(btn => {
@@ -1241,6 +1245,7 @@ function renderTracks(tracks) {
         const trackDiv = document.createElement('div');
         trackDiv.className = 'top-track-item';
         trackDiv.setAttribute('data-track-id', track.id);
+        trackDiv.setAttribute('data-uri', track.uri);
 
         // Thumbnail
         const img = document.createElement('img');
@@ -1286,6 +1291,17 @@ function renderTracks(tracks) {
 // Play specific track
 async function playTrack(uri) {
     try {
+        // Collect track URIs for artist top tracks (no playlist/album context)
+        let trackUris = null;
+        if (currentArtistId && !currentPlaylistId && !currentAlbumId) {
+            const trackItems = document.querySelectorAll('.top-track-item[data-uri]');
+            const allUris = Array.from(trackItems).map(item => item.getAttribute('data-uri'));
+            const startIndex = allUris.indexOf(uri);
+            if (startIndex !== -1) {
+                trackUris = allUris.slice(startIndex);
+            }
+        }
+
         const response = await fetch('/api/play-track', {
             method: 'POST',
             headers: {
@@ -1294,7 +1310,8 @@ async function playTrack(uri) {
             body: JSON.stringify({
                 uri: uri,
                 playlist_id: currentPlaylistId,
-                album_id: currentAlbumId
+                album_id: currentAlbumId,
+                track_uris: trackUris
             })
         });
 
@@ -1787,6 +1804,7 @@ function hideSettingsModal() {
     settingsModal.classList.add('hidden');
     stopDevicePolling(); // Stop polling when modal closes
     settingsUnlocked = false; // Reset PIN unlock state
+    updateProtectedTabsLockState(); // Reset lock icons
 }
 
 // Refresh content (playlists or artists based on current view)
@@ -1804,7 +1822,7 @@ function refreshPlaylists() {
 // Tab switching
 function switchTab(tabName) {
     // Check if protected tab requires PIN
-    const protectedTabs = ['bluetooth', 'other'];
+    const protectedTabs = ['bluetooth', 'volume', 'system'];
     if (protectedTabs.includes(tabName) && !settingsUnlocked) {
         showSettingsPinModal(tabName);
         return;
@@ -1839,8 +1857,8 @@ function switchTab(tabName) {
         startBluetoothPolling();
     }
 
-    // Load default volume setting when switching to other tab
-    if (tabName === 'other') {
+    // Load default volume setting when switching to volume tab
+    if (tabName === 'volume') {
         loadDefaultVolumeSetting();
     }
 }
@@ -1877,14 +1895,17 @@ async function loadDevices() {
         const apiDevices = apiData.devices || [];
         const localDevices = localData.devices || [];
 
+        // Check if local devices should be shown (toggle setting)
+        const showLocalDevices = localStorage.getItem('showLocalDevices') !== 'false';
+
         // Filter local devices: only show if NOT already in API devices (match on name)
         const apiDeviceNames = apiDevices.map(d => d.name.toLowerCase());
-        const filteredLocalDevices = localDevices.filter(localDevice => {
+        const filteredLocalDevices = showLocalDevices ? localDevices.filter(localDevice => {
             const localName = (localDevice.remote_name || localDevice.name).toLowerCase();
             return !apiDeviceNames.some(apiName =>
                 apiName.includes(localName) || localName.includes(apiName)
             );
-        });
+        }) : [];
 
         // Check if we have any devices to show
         if (apiDevices.length === 0 && filteredLocalDevices.length === 0) {
@@ -2885,6 +2906,7 @@ function showSettingsPinModal(targetTab) {
     // Skip PIN modal if protection is disabled
     if (!pinProtectionEnabled) {
         settingsUnlocked = true;
+        updateProtectedTabsLockState(); // Update lock icon visibility
         switchTab(targetTab);
         return;
     }
@@ -2998,6 +3020,7 @@ async function verifySettingsPin() {
 
         if (data.success) {
             settingsUnlocked = true;
+            updateProtectedTabsLockState(); // Update lock icon visibility
             const targetTab = pendingProtectedTab; // Save before hiding modal resets it
             hideSettingsPinModal();
             // Now switch to the protected tab
@@ -3020,7 +3043,6 @@ async function verifySettingsPin() {
 // Setup PIN protection toggle
 function setupPinProtectionToggle() {
     const pinToggle = document.getElementById('pin-protection-toggle');
-    const pinToggleLabel = document.querySelector('.toggle-switch-label');
 
     if (pinToggle) {
         // Load saved state from localStorage
@@ -3028,21 +3050,60 @@ function setupPinProtectionToggle() {
         if (savedState !== null) {
             pinProtectionEnabled = savedState === 'true';
             pinToggle.checked = pinProtectionEnabled;
-            if (pinToggleLabel) {
-                pinToggleLabel.textContent = pinProtectionEnabled ? t('settings.enabled') : t('settings.disabled');
-            }
         }
+        // Apply body class for lock icon visibility
+        updatePinProtectionBodyClass();
 
         pinToggle.addEventListener('change', () => {
             pinProtectionEnabled = pinToggle.checked;
             localStorage.setItem('pinProtectionEnabled', pinProtectionEnabled);
-            if (pinToggleLabel) {
-                pinToggleLabel.textContent = pinProtectionEnabled ? t('settings.enabled') : t('settings.disabled');
-            }
             // Reset unlocked state when enabling protection
             if (pinProtectionEnabled) {
                 settingsUnlocked = false;
+                updateProtectedTabsLockState();
             }
+            // Update body class for lock icon visibility
+            updatePinProtectionBodyClass();
+        });
+    }
+}
+
+// Update body class based on PIN protection state
+function updatePinProtectionBodyClass() {
+    if (pinProtectionEnabled) {
+        document.body.classList.remove('pin-disabled');
+    } else {
+        document.body.classList.add('pin-disabled');
+    }
+}
+
+// Update lock icon visibility on protected tabs
+function updateProtectedTabsLockState() {
+    const protectedTabs = document.querySelectorAll('.tab-btn[data-protected="true"]');
+    protectedTabs.forEach(tab => {
+        if (settingsUnlocked) {
+            tab.classList.add('unlocked');
+        } else {
+            tab.classList.remove('unlocked');
+        }
+    });
+}
+
+// Setup local devices toggle
+function setupLocalDevicesToggle() {
+    const localDevicesToggle = document.getElementById('show-local-devices-toggle');
+
+    if (localDevicesToggle) {
+        // Load saved state from localStorage (default: true/checked)
+        const savedState = localStorage.getItem('showLocalDevices');
+        if (savedState !== null) {
+            localDevicesToggle.checked = savedState !== 'false';
+        }
+
+        localDevicesToggle.addEventListener('change', () => {
+            localStorage.setItem('showLocalDevices', localDevicesToggle.checked);
+            // Reload devices to apply the change
+            loadDevices();
         });
     }
 }

@@ -1464,8 +1464,13 @@ def play_track(sp):
         context_uri = f'spotify:album:{album_id}'
         sp.start_playback(context_uri=context_uri, offset={'uri': track_uri})
     else:
-        # Fallback: play only this track (backwards compatible)
-        sp.start_playback(uris=[track_uri])
+        # Check for track URIs list (e.g., artist top tracks)
+        track_uris = data.get('track_uris')
+        if track_uris:
+            sp.start_playback(uris=track_uris)
+        else:
+            # Fallback: play only this track (backwards compatible)
+            sp.start_playback(uris=[track_uri])
     return jsonify({'success': True})
 
 @app.route('/api/shuffle', methods=['POST'])
