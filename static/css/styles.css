@@ -2298,13 +2298,13 @@ body[data-theme="dark"] .pin-key:hover {
 }
 
 .language-toggle-btn .lang-flag {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: 2px;
+    font-size: 48px;
+    line-height: 1;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .language-toggle-btn .lang-name {
-    font-size: 16px;
-    font-weight: 500;
-    opacity: 0.9;
+    font-size: 22px;
+    font-weight: 600;
 }
