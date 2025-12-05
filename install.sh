@@ -35,6 +35,8 @@ NC='\033[0m'
 
 # Global variables
 OS_VARIANT=""
+TOUCH_DISPLAY=""
+DISPLAY_ROTATION=""
 SPOTIFY_CLIENT_ID=""
 SPOTIFY_CLIENT_SECRET=""
 DEVICE_NAME=""
@@ -154,6 +156,15 @@ detect_os_variant() {
     fi
 }
 
+detect_touch_display() {
+    # Check for DSI display (Touch Display 2)
+    if ls /sys/class/drm/*/status 2>/dev/null | xargs grep -l "connected" 2>/dev/null | grep -qi "DSI"; then
+        TOUCH_DISPLAY="dsi"
+    else
+        TOUCH_DISPLAY="none"
+    fi
+}
+
 preflight_checks() {
     echo -e "${BOLD}Pre-flight checks...${NC}"
     echo ""
@@ -204,6 +215,12 @@ preflight_checks() {
     else
         print_success "OS variant: Raspberry Pi OS Lite (no GUI)"
         print_info "Will install X11 + Openbox + Chromium for kiosk mode"
+    fi
+
+    # Detect Touch Display 2
+    detect_touch_display
+    if [[ "$TOUCH_DISPLAY" == "dsi" ]]; then
+        print_success "Touch Display 2 (DSI) detected"
     fi
 
     # Check internet connectivity (HTTP instead of ICMP)
@@ -391,6 +408,32 @@ collect_credentials() {
     echo ""
 }
 
+collect_display_settings() {
+    # Only ask about rotation if DSI display detected on Lite
+    if [[ "$TOUCH_DISPLAY" != "dsi" ]] || [[ "$OS_VARIANT" != "lite" ]]; then
+        return
+    fi
+
+    echo -e "${BOLD}Touch Display 2 detected${NC}"
+    echo ""
+    echo "Choose screen rotation:"
+    echo "  1) 0° - Portrait (native)"
+    echo "  2) 90° - Landscape (USB ports up)"
+    echo "  3) 180° - Portrait inverted"
+    echo "  4) 270° - Landscape (USB ports down)"
+    echo ""
+    read -p "Choose option [1-4, default 4]: " rotation_option
+
+    case "${rotation_option:-4}" in
+        1) DISPLAY_ROTATION="0" ;;
+        2) DISPLAY_ROTATION="90" ;;
+        3) DISPLAY_ROTATION="180" ;;
+        4|*) DISPLAY_ROTATION="270" ;;
+    esac
+    print_success "Display rotation: ${DISPLAY_ROTATION}°"
+    echo ""
+}
+
 # ==============================================================================
 # Package Installation
 # ==============================================================================
@@ -494,6 +537,44 @@ setup_audio() {
         print_success "PulseAudio configured"
     fi
 
+    echo ""
+}
+
+# ==============================================================================
+# Display Rotation Setup
+# ==============================================================================
+
+setup_display_rotation() {
+    local step=$1
+    local total=$2
+    print_step "$step" "$total" "Configuring display rotation..."
+
+    # Skip if no DSI display, no rotation needed, or portrait mode
+    if [[ "$TOUCH_DISPLAY" != "dsi" ]] || [[ -z "$DISPLAY_ROTATION" ]] || [[ "$DISPLAY_ROTATION" == "0" ]]; then
+        print_info "No rotation needed, skipping"
+        echo ""
+        return
+    fi
+
+    # Backup and modify config.txt
+    print_info "Configuring boot parameters..."
+    sudo cp /boot/firmware/config.txt /boot/firmware/config.txt.backup
+
+    if ! grep -q "vc4-kms-dsi-ili9881-7inch" /boot/firmware/config.txt; then
+        echo "dtoverlay=vc4-kms-dsi-ili9881-7inch,rotation=${DISPLAY_ROTATION}" | sudo tee -a /boot/firmware/config.txt > /dev/null
+    else
+        sudo sed -i "s/vc4-kms-dsi-ili9881-7inch.*/vc4-kms-dsi-ili9881-7inch,rotation=${DISPLAY_ROTATION}/" /boot/firmware/config.txt
+    fi
+    print_success "config.txt updated"
+
+    # Modify cmdline.txt
+    sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.backup
+    if ! grep -q "video=DSI-1" /boot/firmware/cmdline.txt; then
+        sudo sed -i "s/$/ video=DSI-1:720x1280@60,rotate=${DISPLAY_ROTATION}/" /boot/firmware/cmdline.txt
+    fi
+    print_success "cmdline.txt updated"
+
+    print_success "Display rotation configured (${DISPLAY_ROTATION}°)"
     echo ""
 }
 
@@ -702,13 +783,29 @@ EOF
         # Create Openbox autostart
         print_info "Creating Openbox autostart..."
         mkdir -p "$HOME/.config/openbox"
+
+        # Build xrandr rotation command if needed
+        local xrandr_cmd=""
+        if [[ -n "$DISPLAY_ROTATION" ]] && [[ "$DISPLAY_ROTATION" != "0" ]]; then
+            local xrandr_rotate=""
+            case "$DISPLAY_ROTATION" in
+                90) xrandr_rotate="right" ;;
+                180) xrandr_rotate="inverted" ;;
+                270) xrandr_rotate="left" ;;
+            esac
+            xrandr_cmd="# Rotate display (Touch Display 2)
+xrandr --output DSI-1 --rotate ${xrandr_rotate} 2>/dev/null || true
+sleep 1
+"
+        fi
+
         cat > "$HOME/.config/openbox/autostart" << EOF
 # Disable screen blanking
 xset s off
 xset s noblank
 xset -dpms
 
-# Start Chromium in kiosk mode
+${xrandr_cmd}# Start Chromium in kiosk mode
 ${CHROMIUM_CMD} --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html &
 EOF
         print_success "Openbox autostart configured"
@@ -825,16 +922,18 @@ main() {
     if [[ "$INSTALL_MODE" != "update" ]]; then
         show_spotify_instructions
         collect_credentials
+        collect_display_settings
     fi
 
     echo -e "${BOLD}Starting installation...${NC}"
     echo ""
 
-    local total_steps=7
+    local total_steps=8
     local current_step=1
 
     install_packages $((current_step++)) $total_steps
     setup_audio $((current_step++)) $total_steps
+    setup_display_rotation $((current_step++)) $total_steps
     install_application $((current_step++)) $total_steps
 
     if [[ "$INSTALL_MODE" != "update" ]]; then
