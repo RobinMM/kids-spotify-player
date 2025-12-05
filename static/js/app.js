@@ -2571,7 +2571,13 @@ function getBluetoothDeviceIcon(device) {
 function getBluetoothDeviceStatus(device, isPaired) {
     if (device.address === bluetoothState.connectingDevice) return t('bt.connecting');
     if (device.address === bluetoothState.pairingDevice) return t('bt.pairing');
-    if (device.connected) return t('bt.connected');
+    if (device.connected) {
+        let status = t('bt.connected');
+        if (device.codec) {
+            status += ` · ${device.codec}`;
+        }
+        return status;
+    }
     if (isPaired) return t('bt.notConnected');
     return t('bt.available');
 }

@@ -6,7 +6,14 @@
 # Usage: curl -sSL https://raw.githubusercontent.com/RobinMM/kids-spotify-player/main/install.sh | bash
 #
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
+
+# Check for interactive shell
+if [[ ! -t 0 ]]; then
+    echo "Dit installatie-script vereist een interactieve shell (stdin is geen tty)." >&2
+    exit 1
+fi
 
 # ==============================================================================
 # Configuration
@@ -33,13 +40,14 @@ SPOTIFY_CLIENT_SECRET=""
 DEVICE_NAME=""
 SETTINGS_PIN=""
 INSTALL_MODE="fresh"
+CHROMIUM_CMD=""
 
 # ==============================================================================
 # Helper Functions
 # ==============================================================================
 
 print_header() {
-    clear
+    if [[ -t 1 ]]; then clear; fi
     echo -e "${BLUE}"
     echo "╔═══════════════════════════════════════════════════════════════╗"
     echo "║                                                               ║"
@@ -68,6 +76,39 @@ print_error() {
 
 print_info() {
     echo -e "  ${CYAN}→${NC} $1"
+}
+
+# Check if a command exists
+require_cmd() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        print_error "Vereiste command niet gevonden: $cmd"
+        echo "    Installeer het ontbrekende pakket en probeer opnieuw."
+        exit 1
+    fi
+}
+
+# Check if systemd user services are available
+check_systemd_user() {
+    if ! systemctl --user show-environment >/dev/null 2>&1; then
+        print_error "Systemd user services zijn niet beschikbaar."
+        echo "    Zorg dat je als normale gebruiker bent ingelogd (geen sudo su)"
+        echo "    en dat systemd user sessions ondersteund worden."
+        exit 1
+    fi
+}
+
+# Detect chromium binary
+detect_chromium() {
+    if command -v chromium-browser >/dev/null 2>&1; then
+        CHROMIUM_CMD="chromium-browser"
+    elif command -v chromium >/dev/null 2>&1; then
+        CHROMIUM_CMD="chromium"
+    else
+        print_error "Chromium niet gevonden (chromium-browser / chromium)."
+        echo "    Installeer Chromium en voer het script opnieuw uit."
+        exit 1
+    fi
 }
 
 # Error handler
@@ -117,22 +158,41 @@ preflight_checks() {
     echo -e "${BOLD}Pre-flight checks...${NC}"
     echo ""
 
+    # Check for Debian-based OS (apt required)
+    if ! command -v apt >/dev/null 2>&1; then
+        print_error "Dit script is gemaakt voor Debian/Raspberry Pi OS (apt vereist)."
+        echo "    Andere distributies worden niet ondersteund."
+        exit 1
+    fi
+    print_success "Debian-based OS detected"
+
+    # Check required commands
+    for cmd in sudo git curl python3 systemctl; do
+        require_cmd "$cmd"
+    done
+    print_success "Required commands available"
+
+    # Check systemd user services
+    check_systemd_user
+    print_success "Systemd user services available"
+
     # Check if running on Raspberry Pi
     if [[ -f /proc/device-tree/model ]]; then
-        local model=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
+        local model
+        model=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0')
         if echo "$model" | grep -qi "raspberry"; then
             print_success "Raspberry Pi detected: $model"
         else
             print_warning "Not a Raspberry Pi: $model"
             read -p "    Continue anyway? [y/N]: " continue_anyway
-            if [[ ! "$continue_anyway" =~ ^[Yy]$ ]]; then
+            if [[ ! "${continue_anyway:-}" =~ ^[Yy]$ ]]; then
                 exit 1
             fi
         fi
     else
         print_warning "Could not detect hardware model"
         read -p "    Continue anyway? [y/N]: " continue_anyway
-        if [[ ! "$continue_anyway" =~ ^[Yy]$ ]]; then
+        if [[ ! "${continue_anyway:-}" =~ ^[Yy]$ ]]; then
             exit 1
         fi
     fi
@@ -146,12 +206,12 @@ preflight_checks() {
         print_info "Will install X11 + Openbox + Chromium for kiosk mode"
     fi
 
-    # Check internet connectivity
-    if ping -c 1 -W 5 github.com &>/dev/null; then
+    # Check internet connectivity (HTTP instead of ICMP)
+    if curl -s --head --max-time 10 https://github.com >/dev/null 2>&1; then
         print_success "Internet connection OK"
     else
-        print_error "No internet connection"
-        echo "    Please connect to the internet and try again."
+        print_error "Geen internetverbinding (HTTP naar github.com lukt niet)"
+        echo "    Controleer je netwerk en probeer opnieuw."
         exit 1
     fi
 
@@ -168,7 +228,8 @@ preflight_checks() {
     fi
 
     # Check disk space
-    local available_mb=$(df -m "$HOME" | awk 'NR==2 {print $4}')
+    local available_mb
+    available_mb=$(df -m "$HOME" | awk 'NR==2 {print $4}')
     local required_mb=200
     if [[ "$OS_VARIANT" == "lite" ]]; then
         required_mb=500
@@ -258,7 +319,17 @@ show_spotify_instructions() {
 
 validate_client_id() {
     local id="$1"
+    # Spotify Client IDs are 32 hex characters
     if [[ "$id" =~ ^[a-f0-9]{32}$ ]]; then
+        return 0
+    fi
+    return 1
+}
+
+validate_secret() {
+    local secret="$1"
+    # Client Secret: minimaal 20 karakters (flexibeler voor toekomstige wijzigingen)
+    if [[ "${#secret}" -ge 20 ]]; then
         return 0
     fi
     return 1
@@ -291,11 +362,11 @@ collect_credentials() {
     while true; do
         read -sp "  Spotify Client Secret: " SPOTIFY_CLIENT_SECRET
         echo ""
-        if validate_client_id "$SPOTIFY_CLIENT_SECRET"; then
+        if validate_secret "$SPOTIFY_CLIENT_SECRET"; then
             print_success "Client Secret accepted"
             break
         else
-            print_error "Invalid Client Secret (must be 32 hex characters)"
+            print_error "Invalid Client Secret (te kort, minimaal 20 karakters)"
         fi
     done
 
@@ -331,38 +402,60 @@ install_packages() {
 
     # Update package list
     print_info "Updating package list..."
-    sudo apt update -qq
+    if ! sudo apt update -qq; then
+        print_error "apt update faalde. Controleer je apt-sources en netwerk."
+        exit 1
+    fi
 
     # Core packages
     print_info "Installing core packages..."
-    sudo apt install -y -qq git python3-pip python3-venv curl >/dev/null 2>&1
+    if ! sudo apt install -y -qq git python3-pip python3-venv curl; then
+        print_error "Installatie van core packages faalde."
+        exit 1
+    fi
     print_success "Core packages installed"
 
     # Librespot
     print_info "Installing librespot (Spotify Connect)..."
-    sudo apt install -y -qq librespot >/dev/null 2>&1
+    if ! sudo apt install -y -qq librespot; then
+        print_error "Installatie van librespot faalde."
+        exit 1
+    fi
     print_success "Librespot installed"
 
     # Audio packages
     print_info "Installing audio packages..."
-    sudo apt install -y -qq pipewire pipewire-pulse wireplumber libspa-0.2-bluetooth pulseaudio-utils >/dev/null 2>&1 || {
+    if ! sudo apt install -y -qq pipewire pipewire-pulse wireplumber libspa-0.2-bluetooth pulseaudio-utils 2>/dev/null; then
         # Fallback to PulseAudio if PipeWire not available
         print_warning "PipeWire not available, using PulseAudio"
-        sudo apt install -y -qq pulseaudio pulseaudio-utils pulseaudio-module-bluetooth >/dev/null 2>&1
-    }
+        if ! sudo apt install -y -qq pulseaudio pulseaudio-utils pulseaudio-module-bluetooth; then
+            print_error "Installatie van audio packages faalde."
+            exit 1
+        fi
+    fi
     print_success "Audio packages installed"
 
     # Bluetooth packages
     print_info "Installing Bluetooth packages..."
-    sudo apt install -y -qq bluetooth bluez bluez-tools >/dev/null 2>&1
+    if ! sudo apt install -y -qq bluetooth bluez bluez-tools; then
+        print_error "Installatie van Bluetooth packages faalde."
+        exit 1
+    fi
     print_success "Bluetooth packages installed"
 
     # Kiosk packages (only for Lite)
     if [[ "$OS_VARIANT" == "lite" ]]; then
         print_info "Installing GUI packages for kiosk mode..."
-        sudo apt install -y -qq xserver-xorg-core xserver-xorg-input-all xinit openbox chromium-browser lightdm >/dev/null 2>&1
+        if ! sudo apt install -y -qq xserver-xorg-core xserver-xorg-input-all xinit openbox chromium-browser lightdm; then
+            print_error "Installatie van GUI packages faalde."
+            exit 1
+        fi
         print_success "GUI packages installed"
     fi
+
+    # Detect chromium binary after installation
+    detect_chromium
+    print_success "Chromium detected: $CHROMIUM_CMD"
 
     echo ""
 }
@@ -504,7 +597,16 @@ setup_services() {
     # Create systemd user directory
     mkdir -p "$HOME/.config/systemd/user"
 
-    local user_uid=$(id -u)
+    local user_uid
+    user_uid=$(id -u)
+
+    # Check XDG_RUNTIME_DIR
+    local xdg_dir="/run/user/${user_uid}"
+    if [[ ! -d "$xdg_dir" ]]; then
+        print_warning "XDG_RUNTIME_DIR ${xdg_dir} bestaat nog niet."
+        echo "    Dit wordt normaal door systemd aangemaakt na login."
+        echo "    Als services niet werken, log even uit/in en probeer opnieuw."
+    fi
 
     # Create librespot service
     print_info "Creating librespot service..."
@@ -548,16 +650,28 @@ EOF
 
     # Reload and enable services
     print_info "Enabling services..."
-    systemctl --user daemon-reload
-    systemctl --user enable librespot.service spotify-player.service
+    if ! systemctl --user daemon-reload; then
+        print_error "Kon systemd user daemon niet reloaden."
+        echo "    Controleer of systemd user sessions beschikbaar zijn."
+        exit 1
+    fi
+
+    if ! systemctl --user enable librespot.service spotify-player.service; then
+        print_error "Kon services niet enablen."
+        exit 1
+    fi
 
     # Start services
     print_info "Starting services..."
-    systemctl --user start librespot.service
+    if ! systemctl --user start librespot.service; then
+        print_warning "Librespot service kon niet starten (mogelijk al actief)"
+    fi
     sleep 2
-    systemctl --user start spotify-player.service
+    if ! systemctl --user start spotify-player.service; then
+        print_warning "Spotify-player service kon niet starten (mogelijk al actief)"
+    fi
 
-    print_success "Services started"
+    print_success "Services configured"
     echo ""
 }
 
@@ -595,7 +709,7 @@ xset s noblank
 xset -dpms
 
 # Start Chromium in kiosk mode
-chromium-browser --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html &
+${CHROMIUM_CMD} --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html &
 EOF
         print_success "Openbox autostart configured"
 
@@ -611,7 +725,7 @@ EOF
 Type=Application
 Name=Kids Spotify Player
 Comment=Touchscreen Spotify player for kids
-Exec=chromium-browser --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html
+Exec=${CHROMIUM_CMD} --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html
 X-GNOME-Autostart-enabled=true
 EOF
         print_success "Autostart entry created"

@@ -662,6 +662,40 @@ class BluetoothManager:
                     info['icon'] = line.split(':', 1)[1].strip()
         return info
 
+    def get_bluetooth_codec(self, address):
+        """Get the active Bluetooth audio codec for a connected device."""
+        try:
+            result = subprocess.run(
+                ['pactl', 'list', 'sinks'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return None
+
+            # Format address for matching (00:16:94:1D:C0:98 -> 00_16_94_1D_C0_98)
+            address_formatted = address.replace(':', '_')
+
+            # Parse pactl output to find the codec for this device
+            current_sink_matches = False
+            for line in result.stdout.split('\n'):
+                line = line.strip()
+                # Check if this sink belongs to our device
+                if f'bluez_output.{address_formatted}' in line or f'api.bluez5.address = "{address}"' in line:
+                    current_sink_matches = True
+                elif line.startswith('Name:') and 'bluez' not in line:
+                    current_sink_matches = False
+
+                # If we're in the right sink section, look for codec
+                if current_sink_matches and 'api.bluez5.codec' in line:
+                    # Extract codec: api.bluez5.codec = "aptx"
+                    codec = line.split('=')[1].strip().strip('"')
+                    return codec.upper()
+
+            return None
+        except Exception as e:
+            print(f"[BT] Error getting codec: {e}")
+            return None
+
     def get_paired_devices(self):
         """Get list of paired Bluetooth devices"""
         stdout, stderr, rc = self._run_bluetoothctl(['devices Paired'], timeout=5)
@@ -674,14 +708,24 @@ class BluetoothManager:
 
         for addr, name in paired_addrs.items():
             info = self._get_device_info(addr)
-            devices.append({
+            is_connected = info.get('connected', False)
+
+            device_data = {
                 'address': addr,
                 'name': info.get('name', name),
-                'connected': info.get('connected', False),
+                'connected': is_connected,
                 'paired': True,
                 'trusted': info.get('trusted', False),
                 'icon': info.get('icon', '')
-            })
+            }
+
+            # Get codec for connected devices
+            if is_connected:
+                codec = self.get_bluetooth_codec(addr)
+                if codec:
+                    device_data['codec'] = codec
+
+            devices.append(device_data)
 
         return devices
 
