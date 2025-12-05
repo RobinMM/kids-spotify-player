@@ -58,7 +58,8 @@ After installation, reboot to start in kiosk mode: `sudo reboot`
 
 1. Open browser on the Pi: `http://127.0.0.1:5000`
 2. Log in with your Spotify Premium account
-3. Done! The app will remember your credentials.
+3. **Activate Spotify Connect**: Open the official Spotify app on your phone/computer, select the Pi as playback device, and play something briefly. This one-time step registers the Pi with your Spotify account.
+4. Done! The app will remember your credentials and can now control Spotify Connect.
 
 ## Usage
 
