@@ -2,8 +2,11 @@
 
 A kid-friendly Spotify player built with Flask and JavaScript. Designed for use on a Raspberry Pi with touchscreen.
 
-> **Note**: This is a personal hobby project. Use at your own risk.
-> I cannot provide support for installation or configuration issues.
+> **🚧 Early Development**
+>
+> This project is still a work in progress and not fully stable yet. The installation script is fresh and needs more real-world testing.
+>
+> Found a bug? I'd love to hear about it! Please [open an issue](https://github.com/RobinMM/kids-spotify-player/issues) with clear steps to reproduce. I'm a dad of two with a full-time job, so my time is limited — but I'll do my best to look into it when I can. Thanks for your patience and interest in this project! 🙏
 
 ## Features
 
