@@ -177,6 +177,13 @@ preflight_checks() {
     fi
     print_success "Debian-based OS detected"
 
+    # Install git and curl if missing (essential for this script)
+    if ! command -v git >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+        print_info "Installing essential packages (git, curl)..."
+        sudo apt update -qq
+        sudo apt install -y -qq git curl
+    fi
+
     # Check required commands
     for cmd in sudo git curl python3 systemctl; do
         require_cmd "$cmd"
