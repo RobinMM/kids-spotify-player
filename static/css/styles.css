@@ -15,6 +15,7 @@
     --border-color: #e9ecef;
     --slider-track: #d0d0d0;
     --hover-bg: #f8f9fa;
+    --button-text: #333;
 }
 
 /* Dark Mode */
@@ -26,6 +27,7 @@ body[data-theme="dark"] {
     --border-color: #3a3a3a;
     --slider-track: #3a3a3a;
     --hover-bg: #2a2a2a;
+    --button-text: #333;
 }
 
 /* Reset & Base Styles */
@@ -105,7 +107,7 @@ body {
 .view-toggle-btn {
     flex: 1;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 12px;
     padding: 16px 10px;
@@ -133,7 +135,7 @@ body {
 
 .view-toggle-btn.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--button-text);
 }
 
 /* Panel Header (for middle panel with sub-toggle) */
@@ -169,7 +171,7 @@ body {
     gap: 8px;
     font-size: 20px;
     font-weight: 600;
-    color: white;
+    color: var(--button-text);
     transition: all 0.2s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     box-sizing: border-box;
@@ -182,7 +184,7 @@ body {
 .back-btn .icon {
     width: 36px;
     height: 36px;
-    color: white;
+    color: var(--button-text);
 }
 
 /* Artist Sub-Toggle (Top Nummers / Albums) */
@@ -195,7 +197,7 @@ body {
 
 .sub-toggle-btn {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 12px;
     padding: 16px 16px;
@@ -229,7 +231,7 @@ body {
 
 .sub-toggle-btn.active {
     background: var(--accent-color);
-    color: white;
+    color: var(--button-text);
 }
 
 /* Album Header (Spotify-style) */
@@ -284,7 +286,7 @@ body {
 .album-play-btn svg {
     width: 24px;
     height: 24px;
-    fill: white;
+    fill: var(--button-text);
 }
 
 .album-header-info {
@@ -829,7 +831,7 @@ body {
 
 .control-btn {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 50%;
     width: 60px;
@@ -1320,7 +1322,7 @@ body.pin-disabled .tab-lock-icon {
 
 .local-badge {
     background: var(--primary-color);
-    color: white;
+    color: var(--button-text);
     font-size: 10px;
     font-weight: 600;
     padding: 2px 6px;
@@ -1403,7 +1405,7 @@ body.pin-disabled .tab-lock-icon {
     left: 50%;
     transform: translateX(-50%) translateY(100px);
     background: rgba(0, 0, 0, 0.9);
-    color: white;
+    color: var(--button-text);
     padding: 12px 24px;
     border-radius: 8px;
     font-size: 16px;
@@ -1467,7 +1469,7 @@ body.pin-disabled .tab-lock-icon {
 
 .toggle-btn.active {
     background: var(--primary-color);
-    color: white;
+    color: var(--button-text);
     border-color: var(--primary-color);
 }
 
@@ -1525,7 +1527,7 @@ body.pin-disabled .tab-lock-icon {
     transform: translate(-50%, -50%);
     width: 36px;
     height: 36px;
-    color: white;
+    color: var(--button-text);
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
 }
 
@@ -1614,7 +1616,7 @@ body.pin-disabled .tab-lock-icon {
 /* Action buttons (Cache, Refresh Interface) */
 .btn-action {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 12px;
     padding: 16px 14px;
@@ -1655,7 +1657,7 @@ body.pin-disabled .tab-lock-icon {
 
 /* System buttons (Logout, Reboot, Shutdown) */
 .btn-system {
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 10px;
     padding: 14px 10px;
@@ -1717,7 +1719,7 @@ body.pin-disabled .tab-lock-icon {
 
 .btn-danger {
     background: #ff4757;
-    color: white;
+    color: var(--button-text);
 }
 
 .btn-danger:hover {
@@ -1726,7 +1728,7 @@ body.pin-disabled .tab-lock-icon {
 
 .btn-warning {
     background: #ffa502;
-    color: white;
+    color: var(--button-text);
 }
 
 .btn-warning:hover {
@@ -1804,7 +1806,7 @@ body.pin-disabled .tab-lock-icon {
     gap: 8px;
     padding: 14px 24px;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 10px;
     cursor: pointer;
@@ -1951,7 +1953,7 @@ body.pin-disabled .tab-lock-icon {
 /* Primary button style for modals */
 .btn-primary {
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
 }
 
 .btn-primary:hover {
@@ -2023,14 +2025,14 @@ body.pin-disabled .tab-lock-icon {
 
 .pin-key:hover {
     background: var(--primary-color);
-    color: white;
+    color: var(--button-text);
     transform: scale(1.05);
 }
 
 .pin-key:active {
     transform: scale(0.95);
     background: var(--secondary-color);
-    color: white;
+    color: var(--button-text);
 }
 
 .pin-key-empty {
@@ -2132,7 +2134,7 @@ body[data-theme="dark"] .pin-key:hover {
 /* Update button in action row */
 .btn-action-update {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
+    color: var(--button-text);
 }
 
 .btn-action-update:hover {
@@ -2145,7 +2147,7 @@ body[data-theme="dark"] .pin-key:hover {
 }
 
 .btn-action-update .icon {
-    fill: white;
+    fill: var(--button-text);
 }
 
 /* Update confirmation modal */
@@ -2321,7 +2323,7 @@ body[data-theme="dark"] .pin-key:hover {
 .language-toggle-btn {
     flex: 1;
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    color: var(--button-text);
     border: none;
     border-radius: 16px;
     padding: 24px 16px;
