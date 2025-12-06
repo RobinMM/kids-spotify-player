@@ -317,18 +317,18 @@ show_spotify_instructions() {
     echo ""
     echo "Before continuing, create a Spotify Developer App:"
     echo ""
-    echo "  1. Go to: ${CYAN}https://developer.spotify.com/dashboard${NC}"
+    echo -e "  1. Go to: ${CYAN}https://developer.spotify.com/dashboard${NC}"
     echo ""
     echo "  2. Log in with your Spotify account"
     echo ""
-    echo "  3. Click '${BOLD}Create App${NC}'"
+    echo -e "  3. Click '${BOLD}Create App${NC}'"
     echo "     - App name: Kids Spotify Player"
     echo "     - App description: Touchscreen music player"
-    echo "     - Redirect URI: ${GREEN}http://127.0.0.1:5000/callback${NC}"
+    echo -e "     - Redirect URI: ${GREEN}http://127.0.0.1:5000/callback${NC}"
     echo ""
     echo "  4. In your app settings, copy:"
-    echo "     - ${BOLD}Client ID${NC} (32 characters)"
-    echo "     - ${BOLD}Client Secret${NC} (click 'View client secret')"
+    echo -e "     - ${BOLD}Client ID${NC} (32 characters)"
+    echo -e "     - ${BOLD}Client Secret${NC} (click 'View client secret')"
     echo ""
     echo -e "${YELLOW}IMPORTANT: The Redirect URI must be exactly:${NC}"
     echo -e "           ${GREEN}http://127.0.0.1:5000/callback${NC}"
@@ -465,8 +465,15 @@ install_packages() {
     fi
     print_success "Core packages installed"
 
-    # Librespot
+    # Librespot (via raspotify repo)
     print_info "Installing librespot (Spotify Connect)..."
+    if ! command -v librespot >/dev/null 2>&1; then
+        # Add raspotify apt repository
+        print_info "Adding raspotify repository..."
+        curl -sL https://dtcooper.github.io/raspotify/key.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspotify.gpg
+        echo 'deb https://dtcooper.github.io/raspotify raspotify main' | sudo tee /etc/apt/sources.list.d/raspotify.list > /dev/null
+        sudo apt update -qq
+    fi
     if ! sudo apt install -y -qq librespot; then
         print_error "Installatie van librespot faalde."
         exit 1
