@@ -793,7 +793,7 @@ EOF
         print_info "Creating Openbox autostart..."
         mkdir -p "$HOME/.config/openbox"
 
-        # Build xrandr rotation command if needed
+        # Build xrandr rotation command if needed (runs AFTER Chromium to prevent reset)
         local xrandr_cmd=""
         if [[ -n "$DISPLAY_ROTATION" ]] && [[ "$DISPLAY_ROTATION" != "0" ]]; then
             local xrandr_rotate=""
@@ -802,10 +802,10 @@ EOF
                 180) xrandr_rotate="inverted" ;;
                 270) xrandr_rotate="left" ;;
             esac
-            xrandr_cmd="# Rotate display (Touch Display 2)
-xrandr --output DSI-1 --rotate ${xrandr_rotate} 2>/dev/null || true
-sleep 1
-"
+            xrandr_cmd="
+# Rotate display after Chromium starts (prevents reset)
+sleep 2
+xrandr --output DSI-1 --rotate ${xrandr_rotate} 2>/dev/null || true"
         fi
 
         cat > "$HOME/.config/openbox/autostart" << EOF
@@ -814,13 +814,15 @@ xset s off
 xset s noblank
 xset -dpms
 
-${xrandr_cmd}# Start Chromium in kiosk mode
+# Start Chromium in kiosk mode
 ${CHROMIUM_CMD} --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html &
+${xrandr_cmd}
 EOF
         print_success "Openbox autostart configured"
 
-        # Enable LightDM
+        # Enable LightDM and set graphical boot target
         sudo systemctl enable lightdm
+        sudo systemctl set-default graphical.target
 
     else
         # Desktop variant: only add autostart entry
