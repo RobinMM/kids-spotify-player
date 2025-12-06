@@ -465,18 +465,13 @@ install_packages() {
     fi
     print_success "Core packages installed"
 
-    # Librespot (via raspotify repo)
+    # Librespot (via raspotify)
     print_info "Installing librespot (Spotify Connect)..."
     if ! command -v librespot >/dev/null 2>&1; then
-        # Add raspotify apt repository
-        print_info "Adding raspotify repository..."
-        curl -sL https://dtcooper.github.io/raspotify/key.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspotify.gpg
-        echo 'deb https://dtcooper.github.io/raspotify raspotify main' | sudo tee /etc/apt/sources.list.d/raspotify.list > /dev/null
-        sudo apt update -qq
-    fi
-    if ! sudo apt install -y -qq raspotify; then
-        print_error "Installatie van librespot faalde."
-        exit 1
+        if ! curl -sL https://dtcooper.github.io/raspotify/install.sh | sh; then
+            print_error "Installatie van raspotify/librespot faalde."
+            exit 1
+        fi
     fi
     print_success "Librespot installed (via raspotify)"
 
