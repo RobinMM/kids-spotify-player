@@ -40,7 +40,7 @@ A kid-friendly Spotify player built with Flask and JavaScript. Designed for use 
 SSH into your Raspberry Pi and run:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/RobinMM/kids-spotify-player/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/RobinMM/kids-spotify-player/main/install.sh -o install.sh && bash install.sh
 ```
 
 The installer will:
