@@ -33,6 +33,7 @@ body[data-theme="dark"] {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    cursor: none !important;
 }
 
 body {
@@ -731,12 +732,12 @@ body {
 }
 
 .track-info .track-name {
-    font-size: 18px;
+    font-size: 24px;
     margin-bottom: 6px;
 }
 
 .track-info .track-artist {
-    font-size: 15px;
+    font-size: 18px;
 }
 
 /* Progress Bar */
@@ -2299,6 +2300,7 @@ body[data-theme="dark"] .pin-key:hover {
 
 .language-toggle-btn .lang-flag {
     font-size: 48px;
+    width: 64px;
     line-height: 1;
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);

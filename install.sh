@@ -498,7 +498,7 @@ install_packages() {
     # Kiosk packages (only for Lite)
     if [[ "$OS_VARIANT" == "lite" ]]; then
         print_info "Installing GUI packages for kiosk mode..."
-        if ! sudo apt install -y -qq xserver-xorg-core xserver-xorg-input-all xinit openbox chromium lightdm; then
+        if ! sudo apt install -y -qq sway wlr-randr chromium lightdm; then
             print_error "Installatie van GUI packages faalde."
             exit 1
         fi
@@ -775,50 +775,89 @@ setup_kiosk() {
     print_step "$step" "$total" "Setting up kiosk mode..."
 
     if [[ "$OS_VARIANT" == "lite" ]]; then
-        # Lite variant: configure LightDM autologin + Openbox
+        # Lite variant: configure LightDM autologin + Sway (Wayland)
         print_info "Configuring LightDM autologin..."
 
         # Create LightDM config directory if needed
         sudo mkdir -p /etc/lightdm/lightdm.conf.d
 
+        # Create Wayland session file
+        sudo mkdir -p /usr/share/wayland-sessions
+        sudo tee /usr/share/wayland-sessions/spotify-kiosk.desktop > /dev/null << EOF
+[Desktop Entry]
+Name=Spotify Kiosk
+Exec=${INSTALL_DIR}/kiosk.sh
+Type=Application
+EOF
+        print_success "Wayland session created"
+
         # Create autologin config
         sudo tee /etc/lightdm/lightdm.conf.d/50-autologin.conf > /dev/null << EOF
 [Seat:*]
 autologin-user=${USER}
-autologin-session=openbox
+autologin-session=spotify-kiosk
 EOF
         print_success "LightDM autologin configured"
 
-        # Create Openbox autostart
-        print_info "Creating Openbox autostart..."
-        mkdir -p "$HOME/.config/openbox"
+        # Create empty cursor theme
+        print_info "Creating empty cursor theme..."
+        mkdir -p "$HOME/.icons/empty/cursors"
+        cat > "$HOME/.icons/empty/index.theme" << EOF
+[Icon Theme]
+Name=Empty
+Comment=Empty cursor theme
+EOF
+        ln -sf /dev/null "$HOME/.icons/empty/cursors/default"
+        ln -sf /dev/null "$HOME/.icons/empty/cursors/left_ptr"
+        print_success "Empty cursor theme created"
 
-        # Build xrandr rotation command if needed (runs AFTER Chromium to prevent reset)
-        local xrandr_cmd=""
-        if [[ -n "$DISPLAY_ROTATION" ]] && [[ "$DISPLAY_ROTATION" != "0" ]]; then
-            local xrandr_rotate=""
+        # Create Sway config
+        print_info "Creating Sway config..."
+        mkdir -p "$HOME/.config/sway"
+
+        # Determine rotation transform value
+        local sway_transform="normal"
+        if [[ -n "$DISPLAY_ROTATION" ]]; then
             case "$DISPLAY_ROTATION" in
-                90) xrandr_rotate="right" ;;
-                180) xrandr_rotate="inverted" ;;
-                270) xrandr_rotate="left" ;;
+                90) sway_transform="90" ;;
+                180) sway_transform="180" ;;
+                270) sway_transform="270" ;;
             esac
-            xrandr_cmd="
-# Rotate display after Chromium starts (prevents reset)
-sleep 2
-xrandr --output DSI-1 --rotate ${xrandr_rotate} 2>/dev/null || true"
         fi
 
-        cat > "$HOME/.config/openbox/autostart" << EOF
-# Disable screen blanking
-xset s off
-xset s noblank
-xset -dpms
+        cat > "$HOME/.config/sway/config" << EOF
+# Sway config for kiosk mode
 
-# Start Chromium in kiosk mode
-${CHROMIUM_CMD} --kiosk --noerrdialogs --disable-infobars --touch-events=enabled --enable-features=TouchpadOverscrollHistoryNavigation --disable-pinch --overscroll-history-navigation=0 file://${INSTALL_DIR}/static/loader.html &
-${xrandr_cmd}
+# Output configuration - rotate DSI display
+output DSI-1 transform ${sway_transform}
+output DSI-2 transform ${sway_transform}
+
+# Hide cursor
+seat * hide_cursor 1
+
+# Disable all borders
+default_border none
+default_floating_border none
+
+# Start Chromium in fullscreen
+exec ${CHROMIUM_CMD} --kiosk --ozone-platform=wayland --noerrdialogs --disable-infobars file://${INSTALL_DIR}/static/loader.html
+
+# Disable swaybar
+bar {
+    mode invisible
+}
 EOF
-        print_success "Openbox autostart configured"
+        print_success "Sway config created"
+
+        # Create kiosk.sh launcher script
+        cat > "${INSTALL_DIR}/kiosk.sh" << EOF
+#!/bin/bash
+export XCURSOR_THEME=empty
+export XCURSOR_SIZE=1
+exec sway
+EOF
+        chmod +x "${INSTALL_DIR}/kiosk.sh"
+        print_success "Kiosk launcher created"
 
         # Enable LightDM and set graphical boot target
         sudo systemctl enable lightdm
