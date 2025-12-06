@@ -118,6 +118,7 @@ let devicePollingInterval = null;
 
 // Bluetooth state
 let bluetoothState = {
+    powered: true,
     scanning: false,
     pairedDevices: [],
     discoveredDevices: [],
@@ -2513,7 +2514,6 @@ function createBluetoothDeviceElement(device, isPaired) {
 
     const icon = getBluetoothDeviceIcon(device);
     const statusText = getBluetoothDeviceStatus(device, isPaired);
-    const activeDot = device.connected ? '<span class="active-dot"></span>' : '';
 
     // Spinner for connecting/pairing
     let spinner = '';
@@ -2525,6 +2525,11 @@ function createBluetoothDeviceElement(device, isPaired) {
             </svg>
         </span>`;
     }
+
+    // Disconnect button for connected paired devices
+    const disconnectBtn = (isPaired && device.connected) ? `
+        <button class="btn-bt-disconnect" data-address="${device.address}">${t('bt.disconnect')}</button>
+    ` : '';
 
     // Forget button for paired devices
     const forgetBtn = isPaired ? `
@@ -2538,12 +2543,18 @@ function createBluetoothDeviceElement(device, isPaired) {
             <div class="device-status">${statusText}</div>
         </div>
         ${spinner}
-        ${activeDot}
+        ${disconnectBtn}
         ${forgetBtn}
     `;
 
     // Click handler for device body
     div.onclick = (e) => {
+        // Ignore clicks on disconnect button
+        if (e.target.closest('.btn-bt-disconnect')) {
+            e.stopPropagation();
+            disconnectBluetoothDevice(device.address);
+            return;
+        }
         // Ignore clicks on forget button
         if (e.target.closest('.btn-bt-forget')) {
             e.stopPropagation();
@@ -2901,6 +2912,80 @@ function setupBluetoothEventListeners() {
         forgetModal.addEventListener('click', (e) => {
             if (e.target === forgetModal) hideForgetModal();
         });
+    }
+
+    // Setup Bluetooth power toggle
+    setupBluetoothPowerToggle();
+}
+
+// Setup Bluetooth power toggle
+async function setupBluetoothPowerToggle() {
+    const powerToggle = document.getElementById('bluetooth-power-toggle');
+    const bluetoothContent = document.querySelector('.bluetooth-content');
+    const scanBtn = document.getElementById('btn-bluetooth-scan');
+
+    if (!powerToggle) return;
+
+    // Load initial power state from backend
+    try {
+        const response = await fetch('/api/bluetooth/power');
+        const data = await response.json();
+        bluetoothState.powered = data.powered !== false;
+        powerToggle.checked = bluetoothState.powered;
+        updateBluetoothPowerUI();
+    } catch (error) {
+        console.error('Error loading Bluetooth power state:', error);
+    }
+
+    // Handle toggle changes
+    powerToggle.addEventListener('change', async () => {
+        const newState = powerToggle.checked;
+
+        try {
+            const response = await fetch('/api/bluetooth/power', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ powered: newState })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                bluetoothState.powered = newState;
+                updateBluetoothPowerUI();
+                showToast(data.message || (newState ? t('bt.poweredOn') : t('bt.poweredOff')), 'info');
+
+                // Reload devices if turning on
+                if (newState) {
+                    loadBluetoothDevices();
+                }
+            } else {
+                // Revert toggle on failure
+                powerToggle.checked = !newState;
+                showToast(data.error || t('bt.powerFailed'), 'error');
+            }
+        } catch (error) {
+            console.error('Error setting Bluetooth power:', error);
+            powerToggle.checked = !newState;
+            showToast(t('bt.powerFailed'), 'error');
+        }
+    });
+}
+
+// Update UI based on Bluetooth power state
+function updateBluetoothPowerUI() {
+    const bluetoothContent = document.querySelector('.bluetooth-content');
+    const scanBtn = document.getElementById('btn-bluetooth-scan');
+
+    if (bluetoothContent) {
+        if (bluetoothState.powered) {
+            bluetoothContent.classList.remove('disabled');
+        } else {
+            bluetoothContent.classList.add('disabled');
+        }
+    }
+
+    if (scanBtn) {
+        scanBtn.disabled = !bluetoothState.powered;
     }
 }
 
@@ -3289,9 +3374,9 @@ async function waitForServerRestart() {
                 setUpdateProgress(100);
                 setUpdateStatus('Voltooid!', 'Update succesvol geïnstalleerd');
 
-                // Reload page after short delay
+                // Redirect to loader which shows startup screen
                 setTimeout(() => {
-                    location.reload();
+                    window.location.href = '/static/loader.html';
                 }, 1500);
                 return;
             }

@@ -1767,6 +1767,31 @@ body.pin-disabled .tab-lock-icon {
     overscroll-behavior-y: contain;
 }
 
+.bluetooth-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.bluetooth-power-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.bluetooth-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+}
+
+.bluetooth-content.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 .bluetooth-controls {
     display: flex;
     justify-content: flex-end;
@@ -1846,6 +1871,29 @@ body.pin-disabled .tab-lock-icon {
     margin-top: 2px;
 }
 
+/* Bluetooth Disconnect Button */
+.btn-bt-disconnect {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.btn-bt-disconnect:hover {
+    background: rgba(245, 158, 11, 0.25);
+}
+
+.btn-bt-disconnect:active {
+    background: rgba(245, 158, 11, 0.35);
+}
+
 /* Bluetooth Forget Button */
 .btn-bt-forget {
     background: rgba(239, 68, 68, 0.15);
@@ -1858,7 +1906,7 @@ body.pin-disabled .tab-lock-icon {
     cursor: pointer;
     transition: all 0.2s;
     flex-shrink: 0;
-    margin-left: auto;
+    margin-left: 8px;
 }
 
 .btn-bt-forget:hover {

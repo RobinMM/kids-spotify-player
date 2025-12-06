@@ -72,6 +72,9 @@ TRANSLATIONS = {
         'bt.disconnect_failed': 'Disconnect failed',
         'bt.forget_success': 'Device forgotten',
         'bt.forget_failed': 'Forget failed',
+        'bt.power_on': 'Bluetooth enabled',
+        'bt.power_off': 'Bluetooth disabled',
+        'bt.power_failed': 'Failed to change Bluetooth power',
 
         # System messages
         'system.shutdown': 'System is shutting down...',
@@ -129,6 +132,9 @@ TRANSLATIONS = {
         'bt.disconnect_failed': 'Loskoppelen mislukt',
         'bt.forget_success': 'Apparaat vergeten',
         'bt.forget_failed': 'Vergeten mislukt',
+        'bt.power_on': 'Bluetooth ingeschakeld',
+        'bt.power_off': 'Bluetooth uitgeschakeld',
+        'bt.power_failed': 'Kon Bluetooth status niet wijzigen',
 
         # System messages
         'system.shutdown': 'Systeem wordt uitgeschakeld...',
@@ -1052,6 +1058,30 @@ class BluetoothManager:
             print(f"[BT] Auto-reconnect failed: {error}")
 
         return success
+
+    def get_power_state(self):
+        """Check if Bluetooth adapter is powered on"""
+        try:
+            stdout, _, rc = self._run_bluetoothctl(['show'], timeout=5)
+            if stdout:
+                for line in stdout.split('\n'):
+                    if 'Powered:' in line:
+                        return 'yes' in line.lower()
+            return False
+        except Exception as e:
+            print(f"[BT] Error getting power state: {e}")
+            return False
+
+    def set_power_state(self, state):
+        """Turn Bluetooth adapter on or off"""
+        try:
+            cmd = 'power on' if state else 'power off'
+            stdout, stderr, rc = self._run_bluetoothctl([cmd], timeout=10)
+            # Verify the change
+            return self.get_power_state() == state
+        except Exception as e:
+            print(f"[BT] Error setting power state: {e}")
+            return False
 
 
 # Global Bluetooth manager instance
@@ -2225,6 +2255,45 @@ def bluetooth_forget_endpoint():
             }), 400
     except Exception as e:
         print(f"[BT] Forget error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/power', methods=['GET', 'POST'])
+def bluetooth_power_endpoint():
+    """Get or set Bluetooth adapter power state"""
+    if not bluetooth_manager:
+        return jsonify({'error': t('bt.not_available')}), 503
+
+    if request.method == 'GET':
+        try:
+            powered = bluetooth_manager.get_power_state()
+            return jsonify({'powered': powered})
+        except Exception as e:
+            print(f"[BT] Power state error: {e}")
+            return jsonify({'error': str(e)}), 500
+
+    # POST - set power state
+    data = request.get_json()
+    if not data or 'powered' not in data:
+        return jsonify({'error': 'powered parameter required'}), 400
+
+    try:
+        state = bool(data['powered'])
+        success = bluetooth_manager.set_power_state(state)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'powered': state,
+                'message': t('bt.power_on') if state else t('bt.power_off')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': t('bt.power_failed')
+            }), 400
+    except Exception as e:
+        print(f"[BT] Power set error: {e}")
         return jsonify({'error': str(e)}), 500
 
 

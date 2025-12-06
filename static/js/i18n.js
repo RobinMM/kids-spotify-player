@@ -114,6 +114,7 @@ const translations = {
         'bt.unknownDevice': 'Unknown device',
         'bt.notAvailable': 'Bluetooth not available',
         'bt.forget': 'Forget',
+        'bt.disconnect': 'Disconnect',
 
         // Bluetooth toasts
         'bt.searchStarted': 'Searching for Bluetooth devices...',
@@ -132,6 +133,9 @@ const translations = {
         'bt.forgetFailed': 'Forget failed',
         'bt.forgetError': 'Error forgetting',
         'bt.enterPin': 'Enter a PIN code',
+        'bt.poweredOn': 'Bluetooth enabled',
+        'bt.poweredOff': 'Bluetooth disabled',
+        'bt.powerFailed': 'Failed to change Bluetooth power',
 
         // Device toast messages
         'device.playingOn': 'Playing on',
@@ -306,6 +310,7 @@ const translations = {
         'bt.unknownDevice': 'Onbekend apparaat',
         'bt.notAvailable': 'Bluetooth niet beschikbaar',
         'bt.forget': 'Vergeten',
+        'bt.disconnect': 'Verbreken',
 
         // Bluetooth toasts
         'bt.searchStarted': 'Zoeken naar Bluetooth apparaten...',
@@ -324,6 +329,9 @@ const translations = {
         'bt.forgetFailed': 'Vergeten mislukt',
         'bt.forgetError': 'Fout bij vergeten',
         'bt.enterPin': 'Voer een PIN code in',
+        'bt.poweredOn': 'Bluetooth ingeschakeld',
+        'bt.poweredOff': 'Bluetooth uitgeschakeld',
+        'bt.powerFailed': 'Kon Bluetooth status niet wijzigen',
 
         // Device toast messages
         'device.playingOn': 'Afspelen op',
