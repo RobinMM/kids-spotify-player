@@ -498,7 +498,7 @@ install_packages() {
     # Kiosk packages (only for Lite)
     if [[ "$OS_VARIANT" == "lite" ]]; then
         print_info "Installing GUI packages for kiosk mode..."
-        if ! sudo apt install -y -qq xserver-xorg-core xserver-xorg-input-all xinit openbox chromium-browser lightdm; then
+        if ! sudo apt install -y -qq xserver-xorg-core xserver-xorg-input-all xinit openbox chromium lightdm; then
             print_error "Installatie van GUI packages faalde."
             exit 1
         fi
