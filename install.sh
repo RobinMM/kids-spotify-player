@@ -474,11 +474,11 @@ install_packages() {
         echo 'deb https://dtcooper.github.io/raspotify raspotify main' | sudo tee /etc/apt/sources.list.d/raspotify.list > /dev/null
         sudo apt update -qq
     fi
-    if ! sudo apt install -y -qq librespot; then
+    if ! sudo apt install -y -qq raspotify; then
         print_error "Installatie van librespot faalde."
         exit 1
     fi
-    print_success "Librespot installed"
+    print_success "Librespot installed (via raspotify)"
 
     # Audio packages
     print_info "Installing audio packages..."
