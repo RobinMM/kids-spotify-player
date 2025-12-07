@@ -2539,8 +2539,15 @@ def system_update():
                 'details': pip_result.stderr
             }), 500
 
-        # Save new version
-        new_version = target_version if target_version else get_current_version()
+        # Get version from git after checkout (ignore cached version.txt)
+        if target_version:
+            new_version = target_version
+        else:
+            result = subprocess.run(
+                ['git', 'describe', '--tags', '--abbrev=0'],
+                capture_output=True, text=True, timeout=10, cwd=app_dir
+            )
+            new_version = result.stdout.strip() if result.returncode == 0 else 'unknown'
         save_version(new_version)
 
         # Schedule service restart (give time for response to be sent)
