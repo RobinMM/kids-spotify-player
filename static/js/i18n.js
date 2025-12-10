@@ -99,6 +99,10 @@ const translations = {
         'settings.logout': 'Log out',
         'settings.reboot': 'Restart',
         'settings.shutdown': 'Shut down',
+        'settings.localIp': 'Local IP',
+        'settings.internetStatus': 'Internet',
+        'settings.online': 'Connected',
+        'settings.offline': 'No connection',
 
         // Settings - Language tab
         'language.title': 'Language',
@@ -295,6 +299,10 @@ const translations = {
         'settings.logout': 'Uitloggen',
         'settings.reboot': 'Herstarten',
         'settings.shutdown': 'Afsluiten',
+        'settings.localIp': 'Lokaal IP',
+        'settings.internetStatus': 'Internet',
+        'settings.online': 'Verbonden',
+        'settings.offline': 'Geen verbinding',
 
         // Settings - Language tab
         'language.title': 'Taal',

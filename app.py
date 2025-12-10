@@ -2571,6 +2571,41 @@ def system_update():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/system/network-status')
+def get_network_status():
+    """Get local IP address and internet connectivity status"""
+    import socket
+
+    local_ip = None
+    internet = False
+
+    # Get local IP by connecting to external server (gets correct interface IP)
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(2)
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except:
+        # Fallback: try to get hostname IP
+        try:
+            local_ip = socket.gethostbyname(socket.gethostname())
+        except:
+            pass
+
+    # Check internet connectivity
+    try:
+        socket.create_connection(('8.8.8.8', 53), timeout=3)
+        internet = True
+    except:
+        pass
+
+    return jsonify({
+        'ip': local_ip,
+        'internet': internet
+    })
+
+
 if __name__ == '__main__':
     # Check if credentials are set
     if not os.getenv('SPOTIFY_CLIENT_ID') or not os.getenv('SPOTIFY_CLIENT_SECRET'):

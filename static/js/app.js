@@ -1862,6 +1862,30 @@ function switchTab(tabName) {
     if (tabName === 'volume') {
         loadDefaultVolumeSetting();
     }
+
+    // Load network status when switching to system tab
+    if (tabName === 'system') {
+        loadNetworkStatus();
+    }
+}
+
+// Load network status (IP and internet connectivity)
+async function loadNetworkStatus() {
+    const ipEl = document.getElementById('local-ip');
+    const statusEl = document.getElementById('internet-status');
+
+    try {
+        const response = await fetch('/api/system/network-status');
+        const data = await response.json();
+
+        ipEl.textContent = data.ip || '--';
+        statusEl.textContent = data.internet ? t('settings.online') : t('settings.offline');
+        statusEl.className = 'system-info-value ' + (data.internet ? 'online' : 'offline');
+    } catch (e) {
+        ipEl.textContent = '--';
+        statusEl.textContent = t('settings.offline');
+        statusEl.className = 'system-info-value offline';
+    }
 }
 
 // Start device polling (every 3 seconds)
@@ -3300,16 +3324,21 @@ async function performUpdate() {
             return;
         }
 
-        // Update started successfully, now wait for service restart
+        // Update gestart! Redirect direct naar loader
         setUpdateProgress(50);
         setUpdateStatus(t('update.restarting'), t('update.serviceRestart'));
 
-        // Poll health endpoint until server is back
-        await waitForServerRestart();
+        // Korte delay voor visuele feedback, dan naar loader
+        setTimeout(() => {
+            window.location.href = '/static/loader.html';
+        }, 500);
 
     } catch (error) {
-        console.error('Update error:', error);
-        showUpdateError(t('update.failed') + ': ' + error.message);
+        // Bij network error: update is waarschijnlijk WEL gestart
+        // (backend restart heeft de response onderbroken)
+        // Redirect naar loader om te wachten op restart
+        console.log('Update request interrupted, redirecting to loader...');
+        window.location.href = '/static/loader.html';
     }
 }
 
@@ -3349,45 +3378,4 @@ function hideUpdateProgress() {
     }
 }
 
-async function waitForServerRestart() {
-    const maxAttempts = 60;
-    const interval = 1000;
-    let attempts = 0;
-
-    setUpdateProgress(60);
-
-    while (attempts < maxAttempts) {
-        attempts++;
-
-        // Update progress bar
-        const progress = 60 + Math.floor((attempts / maxAttempts) * 35);
-        setUpdateProgress(Math.min(progress, 95));
-
-        try {
-            const response = await fetch('/api/health', {
-                method: 'GET',
-                cache: 'no-store'
-            });
-
-            if (response.ok) {
-                // Server is back!
-                setUpdateProgress(100);
-                setUpdateStatus('Voltooid!', 'Update succesvol geïnstalleerd');
-
-                // Redirect to loader which shows startup screen
-                setTimeout(() => {
-                    window.location.href = '/static/loader.html';
-                }, 1500);
-                return;
-            }
-        } catch (e) {
-            // Server not yet available, continue polling
-        }
-
-        await new Promise(resolve => setTimeout(resolve, interval));
-    }
-
-    // Timeout reached
-    showUpdateError('Server reageert niet na update. Ververs de pagina handmatig.');
-}
 
