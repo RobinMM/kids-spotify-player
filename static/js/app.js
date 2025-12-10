@@ -651,6 +651,9 @@ function setupEventListeners() {
     // Local devices toggle setup
     setupLocalDevicesToggle();
 
+    // Power saving toggle setup
+    setupPowerSavingToggle();
+
     // View toggle (Playlists / Artists) event listeners
     document.querySelectorAll('.view-toggle-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1863,9 +1866,10 @@ function switchTab(tabName) {
         loadDefaultVolumeSetting();
     }
 
-    // Load network status when switching to system tab
+    // Load network status and power saving status when switching to system tab
     if (tabName === 'system') {
         loadNetworkStatus();
+        loadPowerSavingStatus();
     }
 }
 
@@ -3223,6 +3227,53 @@ function setupLocalDevicesToggle() {
     }
 }
 
+// Setup power saving toggle
+function setupPowerSavingToggle() {
+    const powerSavingToggle = document.getElementById('power-saving-toggle');
+
+    if (powerSavingToggle) {
+        powerSavingToggle.addEventListener('change', async () => {
+            try {
+                const response = await fetch('/api/system/power-saving', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: powerSavingToggle.checked })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    // Revert toggle
+                    powerSavingToggle.checked = !powerSavingToggle.checked;
+                } else if (data.reboot_required) {
+                    showToast(t('settings.rebootRequired'), 'info');
+                }
+            } catch (error) {
+                console.error('Error setting power saving:', error);
+                showToast(t('error.save'), 'error');
+                // Revert toggle
+                powerSavingToggle.checked = !powerSavingToggle.checked;
+            }
+        });
+    }
+}
+
+// Load power saving status from backend
+async function loadPowerSavingStatus() {
+    const powerSavingToggle = document.getElementById('power-saving-toggle');
+
+    if (powerSavingToggle) {
+        try {
+            const response = await fetch('/api/system/power-saving');
+            const data = await response.json();
+            powerSavingToggle.checked = data.enabled || false;
+        } catch (error) {
+            console.error('Error loading power saving status:', error);
+        }
+    }
+}
+
 // ============================================
 // UPDATE FUNCTIONALITY
 // ============================================
@@ -3317,26 +3368,31 @@ async function performUpdate() {
             body: JSON.stringify({ version: pendingUpdateVersion })
         });
 
-        const data = await response.json();
+        // Parse JSON in try-catch om parse errors op te vangen
+        let data;
+        try {
+            data = await response.json();
+        } catch (parseError) {
+            // JSON parsing failed - update waarschijnlijk gestart, redirect naar loader
+            console.log('Response parsing failed, redirecting to loader...');
+            window.location.href = '/static/loader.html';
+            return;
+        }
 
         if (!response.ok || data.error) {
             showUpdateError(data.error || t('update.failed'));
             return;
         }
 
-        // Update gestart! Redirect direct naar loader
+        // Update gestart! Redirect naar loader
         setUpdateProgress(50);
         setUpdateStatus(t('update.restarting'), t('update.serviceRestart'));
-
-        // Korte delay voor visuele feedback, dan naar loader
         setTimeout(() => {
             window.location.href = '/static/loader.html';
         }, 500);
 
     } catch (error) {
-        // Bij network error: update is waarschijnlijk WEL gestart
-        // (backend restart heeft de response onderbroken)
-        // Redirect naar loader om te wachten op restart
+        // Network error - update waarschijnlijk WEL gestart
         console.log('Update request interrupted, redirecting to loader...');
         window.location.href = '/static/loader.html';
     }

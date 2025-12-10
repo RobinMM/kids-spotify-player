@@ -103,6 +103,8 @@ const translations = {
         'settings.internetStatus': 'Internet',
         'settings.online': 'Connected',
         'settings.offline': 'No connection',
+        'settings.powerSaving': 'Power Saving',
+        'settings.rebootRequired': 'Reboot required to apply changes',
 
         // Settings - Language tab
         'language.title': 'Language',
@@ -303,6 +305,8 @@ const translations = {
         'settings.internetStatus': 'Internet',
         'settings.online': 'Verbonden',
         'settings.offline': 'Geen verbinding',
+        'settings.powerSaving': 'Energiebesparing',
+        'settings.rebootRequired': 'Herstart vereist om wijzigingen toe te passen',
 
         // Settings - Language tab
         'language.title': 'Taal',
