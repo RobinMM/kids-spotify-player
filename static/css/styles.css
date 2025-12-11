@@ -736,10 +736,16 @@ body {
 .track-info .track-name {
     font-size: 24px;
     margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .track-info .track-artist {
     font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Progress Bar */
@@ -1529,6 +1535,10 @@ body.pin-disabled .tab-lock-icon {
     height: 36px;
     color: var(--button-text);
     filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4));
+}
+
+.theme-preset-btn[data-theme="light"] .preset-icon {
+    color: white;
 }
 
 /* Settings Group for Other Tab */
