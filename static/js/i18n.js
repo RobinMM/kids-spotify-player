@@ -63,6 +63,10 @@ const translations = {
         'error.updateCheck': 'Could not check for updates',
         'error.updateFailed': 'Update failed',
         'error.serverNotResponding': 'Server not responding after update. Refresh the page manually.',
+        'error.accountNotAuthorized': 'Account not authorized',
+        'error.accountNotAuthorizedDesc': 'This Spotify account does not have access to this app.',
+        'error.fieldsRequired': 'Both fields are required',
+        'error.generic': 'Something went wrong',
 
         // Settings tabs
         'settings.theme': 'Theme',
@@ -71,6 +75,7 @@ const translations = {
         'settings.bluetooth': 'Bluetooth',
         'settings.system': 'System',
         'settings.language': 'Language',
+        'settings.account': 'Account',
 
         // Settings - Devices tab
         'settings.computerAudio': 'Computer audio:',
@@ -105,6 +110,25 @@ const translations = {
         'settings.offline': 'No connection',
         'settings.powerSaving': 'Power Saving',
         'settings.rebootRequired': 'Reboot required to apply changes',
+
+        // Settings - Account tab
+        'settings.apiCredentials': 'API Credentials',
+        'settings.credentialsHint': 'Only change if using a different developer account.',
+        'settings.changeCredentials': 'Change credentials',
+        'settings.clientId': 'Client ID',
+        'settings.clientSecret': 'Client Secret',
+        'settings.credentialsWarning': 'Wrong credentials will prevent login!',
+        'settings.credentialsSaved': 'Credentials saved. Logging out...',
+        'settings.openSettings': 'Settings',
+
+        // Settings - Device
+        'settings.device': 'Device',
+        'settings.hostname': 'Hostname',
+        'settings.playerName': 'Player Name',
+        'settings.editHostname': 'Edit Hostname',
+        'settings.editPlayerName': 'Edit Player Name',
+        'settings.hostnameWarning': 'Change takes effect immediately',
+        'settings.playerNameWarning': 'Librespot will restart after change',
 
         // Settings - Language tab
         'language.title': 'Language',
@@ -163,12 +187,16 @@ const translations = {
         'modal.pinRequired': 'PIN required',
         'modal.pinIncorrect': 'Incorrect PIN',
         'modal.enterPinDevice': 'Enter the PIN code for this device:',
+        'modal.enterPin': 'Enter PIN:',
         'modal.pair': 'Pair',
 
         // Modals - Forget device
         'modal.forgetDevice': 'Forget device?',
         'modal.forgetQuestion': 'Are you sure you want to forget "{name}"?',
         'modal.forgetConfirm': 'Forget',
+
+        // Modals - General
+        'modal.save': 'Save',
 
         // Modals - Update
         'modal.updateAvailable': 'Update available',
@@ -265,6 +293,10 @@ const translations = {
         'error.updateCheck': 'Kon niet controleren op updates',
         'error.updateFailed': 'Update mislukt',
         'error.serverNotResponding': 'Server reageert niet na update. Ververs de pagina handmatig.',
+        'error.accountNotAuthorized': 'Account niet geautoriseerd',
+        'error.accountNotAuthorizedDesc': 'Dit Spotify account heeft geen toegang tot deze app.',
+        'error.fieldsRequired': 'Beide velden zijn verplicht',
+        'error.generic': 'Er ging iets mis',
 
         // Settings tabs
         'settings.theme': 'Thema',
@@ -273,6 +305,7 @@ const translations = {
         'settings.bluetooth': 'Bluetooth',
         'settings.system': 'Systeem',
         'settings.language': 'Taal',
+        'settings.account': 'Account',
 
         // Settings - Devices tab
         'settings.computerAudio': 'Computer geluid:',
@@ -307,6 +340,25 @@ const translations = {
         'settings.offline': 'Geen verbinding',
         'settings.powerSaving': 'Energiebesparing',
         'settings.rebootRequired': 'Herstart vereist om wijzigingen toe te passen',
+
+        // Settings - Account tab
+        'settings.apiCredentials': 'API Credentials',
+        'settings.credentialsHint': 'Alleen wijzigen bij ander developer account.',
+        'settings.changeCredentials': 'Credentials wijzigen',
+        'settings.clientId': 'Client ID',
+        'settings.clientSecret': 'Client Secret',
+        'settings.credentialsWarning': 'Verkeerde credentials zorgen dat je niet kunt inloggen!',
+        'settings.credentialsSaved': 'Credentials opgeslagen. Uitloggen...',
+        'settings.openSettings': 'Instellingen',
+
+        // Settings - Device
+        'settings.device': 'Apparaat',
+        'settings.hostname': 'Hostname',
+        'settings.playerName': 'Player naam',
+        'settings.editHostname': 'Hostname wijzigen',
+        'settings.editPlayerName': 'Player naam wijzigen',
+        'settings.hostnameWarning': 'Wijziging wordt direct doorgevoerd',
+        'settings.playerNameWarning': 'Librespot wordt herstart na wijziging',
 
         // Settings - Language tab
         'language.title': 'Taal',
@@ -365,12 +417,16 @@ const translations = {
         'modal.pinRequired': 'PIN vereist',
         'modal.pinIncorrect': 'Onjuiste PIN',
         'modal.enterPinDevice': 'Voer de PIN code in voor dit apparaat:',
+        'modal.enterPin': 'Voer PIN in:',
         'modal.pair': 'Koppelen',
 
         // Modals - Forget device
         'modal.forgetDevice': 'Apparaat vergeten?',
         'modal.forgetQuestion': 'Weet je zeker dat je "{name}" wilt vergeten?',
         'modal.forgetConfirm': 'Vergeten',
+
+        // Modals - General
+        'modal.save': 'Opslaan',
 
         // Modals - Update
         'modal.updateAvailable': 'Update beschikbaar',

@@ -298,7 +298,7 @@ def get_device_info_from_zeroconf(device):
     return None
 
 # Spotify OAuth configuration
-SPOTIFY_SCOPE = 'user-read-playback-state,user-modify-playback-state,playlist-read-private,user-library-read,user-follow-read'
+SPOTIFY_SCOPE = 'user-read-playback-state,user-modify-playback-state,playlist-read-private,user-library-read,user-follow-read,user-read-email,user-read-private'
 
 def check_credentials():
     """Check if Spotify credentials are configured"""
@@ -502,7 +502,8 @@ def handle_spotify_error(e, activate_cooldown=True):
     elif '401' in error_str or 'unauthorized' in error_str:
         return 'Sessie verlopen. Log opnieuw in.', 401
     elif '403' in error_str or 'forbidden' in error_str:
-        return 'Geen toegang tot deze actie.', 403
+        # Return tuple with error_type for frontend to detect account issues
+        return ('Geen toegang tot deze actie.', 'forbidden'), 403
     else:
         return 'Er ging iets mis met Spotify.', 500
 
@@ -521,8 +522,12 @@ def spotify_playback_action(f):
         try:
             return f(sp, *args, **kwargs)
         except spotipy.exceptions.SpotifyException as e:
-            msg, status = handle_spotify_error(e)
-            return jsonify({'error': msg}), status
+            result, status = handle_spotify_error(e)
+            # Check if result is a tuple (msg, error_type) for 403 errors
+            if isinstance(result, tuple):
+                msg, error_type = result
+                return jsonify({'error': msg, 'error_type': error_type}), status
+            return jsonify({'error': result}), status
         except Exception as e:
             print(f"[Unexpected Error] {e}")
             return jsonify({'error': t('error.unknown')}), 500
@@ -2645,6 +2650,213 @@ def get_network_status():
         'ip': local_ip,
         'internet': internet
     })
+
+
+@app.route('/api/system/device-info')
+def get_device_info():
+    """Get hostname and player name"""
+    import socket
+    return jsonify({
+        'hostname': socket.gethostname(),
+        'player_name': os.getenv('SPOTIFY_DEVICE_NAME', '')
+    })
+
+
+@app.route('/api/system/hostname', methods=['POST'])
+def set_hostname():
+    """Set system hostname (requires PIN)"""
+    import re
+    data = request.json
+
+    # PIN verification
+    pin = data.get('pin', '')
+    expected_pin = os.getenv('SETTINGS_PIN', '123456')
+    if pin != expected_pin:
+        return jsonify({'error': t('pin.incorrect')}), 403
+
+    new_hostname = data.get('hostname', '').strip().lower()
+
+    # Validate hostname: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphen
+    if not new_hostname or len(new_hostname) > 63:
+        return jsonify({'error': 'Hostname must be 1-63 characters'}), 400
+    if not re.match(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$', new_hostname) and len(new_hostname) > 1:
+        return jsonify({'error': 'Invalid hostname format'}), 400
+    if len(new_hostname) == 1 and not re.match(r'^[a-z0-9]$', new_hostname):
+        return jsonify({'error': 'Invalid hostname format'}), 400
+
+    try:
+        result = subprocess.run(
+            ['sudo', 'hostnamectl', 'set-hostname', new_hostname],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return jsonify({'error': f'Failed to set hostname: {result.stderr}'}), 500
+
+        print(f"[Device] Hostname changed to: {new_hostname}")
+        return jsonify({'success': True, 'hostname': new_hostname})
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timeout setting hostname'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/system/player-name', methods=['POST'])
+def set_player_name():
+    """Set Spotify player name (requires PIN, restarts librespot)"""
+    import re
+    data = request.json
+
+    # PIN verification
+    pin = data.get('pin', '')
+    expected_pin = os.getenv('SETTINGS_PIN', '123456')
+    if pin != expected_pin:
+        return jsonify({'error': t('pin.incorrect')}), 403
+
+    new_name = data.get('player_name', '').strip()
+
+    if not new_name:
+        return jsonify({'error': 'Player name cannot be empty'}), 400
+
+    try:
+        # 1. Update .env file
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+        update_env_file(env_path, {'SPOTIFY_DEVICE_NAME': new_name})
+        print(f"[Device] Updated SPOTIFY_DEVICE_NAME in .env to: {new_name}")
+
+        # 2. Update librespot.service
+        service_path = os.path.expanduser('~/.config/systemd/user/librespot.service')
+        if os.path.exists(service_path):
+            with open(service_path, 'r') as f:
+                service_content = f.read()
+
+            # Replace --name "..." with new name
+            new_content = re.sub(
+                r'--name\s+"[^"]*"',
+                f'--name "{new_name}"',
+                service_content
+            )
+
+            with open(service_path, 'w') as f:
+                f.write(new_content)
+            print(f"[Device] Updated librespot.service with new name")
+
+            # 3. Reload systemd and restart librespot
+            subprocess.run(['systemctl', '--user', 'daemon-reload'], timeout=10)
+            subprocess.run(['systemctl', '--user', 'restart', 'librespot'], timeout=30)
+            print(f"[Device] Restarted librespot service")
+
+        # Reload environment variables
+        load_dotenv(override=True)
+
+        return jsonify({'success': True, 'player_name': new_name})
+    except Exception as e:
+        print(f"[Device Error] Failed to set player name: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ============================================
+# ACCOUNT MANAGEMENT ENDPOINTS
+# ============================================
+
+def update_env_file(path, updates):
+    """Update .env file with new values, preserving existing content"""
+    lines = []
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            lines = f.readlines()
+
+    updated_keys = set()
+    for i, line in enumerate(lines):
+        for key, value in updates.items():
+            if line.startswith(f'{key}='):
+                lines[i] = f'{key}={value}\n'
+                updated_keys.add(key)
+
+    # Add new keys that weren't found
+    for key, value in updates.items():
+        if key not in updated_keys:
+            lines.append(f'{key}={value}\n')
+
+    with open(path, 'w') as f:
+        f.writelines(lines)
+
+
+def clear_all_spotify_caches():
+    """Delete all Spotify cache files"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cache_pattern = os.path.join(base_dir, '.cache-*')
+    cache_files = glob.glob(cache_pattern)
+
+    for cache_file in cache_files:
+        try:
+            os.remove(cache_file)
+            print(f"Deleted cache file: {cache_file}")
+        except Exception as e:
+            print(f"Error deleting cache file {cache_file}: {e}")
+
+
+@app.route('/api/account/info')
+def get_account_info():
+    """Get current user info for Account tab"""
+    sp = get_spotify_client()
+    if not sp:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    try:
+        user = sp.current_user()
+        client_id = os.getenv('SPOTIFY_CLIENT_ID', '')
+        client_secret = os.getenv('SPOTIFY_CLIENT_SECRET', '')
+        return jsonify({
+            'display_name': user.get('display_name', '-'),
+            'email': user.get('email', '-'),
+            'avatar_url': user['images'][0]['url'] if user.get('images') else None,
+            'country': user.get('country', '-'),
+            'product': user.get('product', '-'),  # 'premium', 'free', 'open', etc.
+            'client_id': client_id if client_id else '-',
+            'client_secret': client_secret if client_secret else '-'
+        })
+    except Exception as e:
+        print(f"[Account Info Error] {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/settings/credentials', methods=['POST'])
+def update_credentials():
+    """Update Spotify API credentials (requires PIN)"""
+    data = request.json
+
+    # PIN verification
+    pin = data.get('pin', '')
+    expected_pin = os.getenv('SETTINGS_PIN', '123456')
+    if pin != expected_pin:
+        return jsonify({'error': t('pin.incorrect')}), 403
+
+    client_id = data.get('client_id', '').strip()
+    client_secret = data.get('client_secret', '').strip()
+
+    if not client_id or not client_secret:
+        return jsonify({'error': 'Both client_id and client_secret are required'}), 400
+
+    # Update .env file
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    try:
+        update_env_file(env_path, {
+            'SPOTIFY_CLIENT_ID': client_id,
+            'SPOTIFY_CLIENT_SECRET': client_secret
+        })
+        print(f"[Credentials] Updated API credentials in {env_path}")
+    except Exception as e:
+        print(f"[Credentials Error] Failed to update .env: {e}")
+        return jsonify({'error': f'Failed to save credentials: {str(e)}'}), 500
+
+    # Reload environment variables
+    load_dotenv(override=True)
+
+    # Clear session and all caches
+    session.clear()
+    clear_all_spotify_caches()
+
+    return jsonify({'success': True, 'message': 'Credentials updated. Please log in again.'})
 
 
 if __name__ == '__main__':

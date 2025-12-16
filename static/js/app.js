@@ -554,6 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupThemeListeners();
     setupBluetoothEventListeners();
     setupPinProtectionToggle();
+    setupAccountEventListeners();
 
     // Reopen settings modal if coming back from refresh
     const reopenTab = localStorage.getItem('reopenSettingsTab');
@@ -1826,7 +1827,7 @@ function refreshPlaylists() {
 // Tab switching
 function switchTab(tabName) {
     // Check if protected tab requires PIN
-    const protectedTabs = ['bluetooth', 'volume', 'system'];
+    const protectedTabs = ['bluetooth', 'volume', 'system', 'account'];
     if (protectedTabs.includes(tabName) && !settingsUnlocked) {
         showSettingsPinModal(tabName);
         return;
@@ -1870,6 +1871,12 @@ function switchTab(tabName) {
     if (tabName === 'system') {
         loadNetworkStatus();
         loadPowerSavingStatus();
+    }
+
+    // Load account info when switching to account tab
+    if (tabName === 'account') {
+        loadAccountInfo();
+        loadDeviceInfo();
     }
 }
 
@@ -3271,6 +3278,284 @@ async function loadPowerSavingStatus() {
         } catch (error) {
             console.error('Error loading power saving status:', error);
         }
+    }
+}
+
+// ============================================
+// ACCOUNT FUNCTIONALITY
+// ============================================
+
+// Track if account error modal has been shown this session
+let accountErrorShown = false;
+
+// Load account info for Account tab
+async function loadAccountInfo() {
+    try {
+        const response = await fetch('/api/account/info');
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('account-display-name').textContent = data.display_name || '-';
+            document.getElementById('account-email').textContent = data.email || '-';
+            document.getElementById('credential-client-id').textContent = data.client_id || '-';
+            document.getElementById('credential-client-secret').textContent = data.client_secret || '-';
+
+            // Product (Premium/Free) with styling
+            const productEl = document.getElementById('account-product');
+            const product = data.product || '-';
+            productEl.textContent = product.charAt(0).toUpperCase() + product.slice(1);
+            productEl.classList.toggle('premium', product === 'premium');
+
+            // Load avatar if available
+            const avatar = document.getElementById('account-avatar');
+            if (data.avatar_url) {
+                avatar.innerHTML = `<img src="${data.avatar_url}" alt="Avatar">`;
+            } else {
+                avatar.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>`;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load account info:', e);
+    }
+}
+
+// Load device info for Account tab
+async function loadDeviceInfo() {
+    try {
+        const response = await fetch('/api/system/device-info');
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('device-hostname').textContent = data.hostname || '-';
+            document.getElementById('device-player-name').textContent = data.player_name || '-';
+        }
+    } catch (e) {
+        console.error('Failed to load device info:', e);
+    }
+}
+
+// Device edit modal state
+let deviceEditType = null;
+
+// Open device edit modal
+function openDeviceEditModal(type) {
+    deviceEditType = type;
+    const modal = document.getElementById('device-edit-modal');
+    const title = document.getElementById('device-edit-title');
+    const label = document.getElementById('device-edit-label');
+    const input = document.getElementById('device-edit-input');
+    const warning = document.getElementById('device-edit-warning');
+
+    if (type === 'hostname') {
+        title.textContent = t('settings.editHostname');
+        label.textContent = t('settings.hostname');
+        input.value = document.getElementById('device-hostname').textContent;
+        warning.textContent = t('settings.hostnameWarning');
+    } else {
+        title.textContent = t('settings.editPlayerName');
+        label.textContent = t('settings.playerName');
+        input.value = document.getElementById('device-player-name').textContent;
+        warning.textContent = t('settings.playerNameWarning');
+    }
+
+    modal.classList.remove('hidden');
+    input.focus();
+}
+
+// Close device edit modal
+function closeDeviceEditModal() {
+    document.getElementById('device-edit-modal').classList.add('hidden');
+    deviceEditType = null;
+}
+
+// Save device edit (requires PIN)
+async function saveDeviceEdit() {
+    const input = document.getElementById('device-edit-input').value.trim();
+
+    if (!input) {
+        showToast(t('error.fieldsRequired'), 'error');
+        return;
+    }
+
+    // Get PIN from user
+    const pin = prompt(t('modal.enterPin'));
+    if (!pin) return;
+
+    const endpoint = deviceEditType === 'hostname'
+        ? '/api/system/hostname'
+        : '/api/system/player-name';
+
+    const bodyKey = deviceEditType === 'hostname' ? 'hostname' : 'player_name';
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ [bodyKey]: input, pin: pin })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            showToast(t('settings.saved'), 'info');
+            loadDeviceInfo();
+            closeDeviceEditModal();
+        } else {
+            showToast(data.error || t('error.unknown'), 'error');
+        }
+    } catch (e) {
+        console.error('Failed to save device edit:', e);
+        showToast(t('error.unknown'), 'error');
+    }
+}
+
+// Check for account error (403 forbidden) in API responses
+function checkForAccountError(response, data) {
+    if (response.status === 403 && data && data.error_type === 'forbidden' && !accountErrorShown) {
+        showAccountErrorModal();
+        accountErrorShown = true;
+    }
+}
+
+// Show account error modal (403 error recovery)
+function showAccountErrorModal() {
+    document.getElementById('account-error-modal').classList.remove('hidden');
+}
+
+// Hide account error modal
+function hideAccountErrorModal() {
+    document.getElementById('account-error-modal').classList.add('hidden');
+}
+
+// Show credentials modal
+function showCredentialsModal() {
+    // Clear previous input
+    document.getElementById('credentials-client-id').value = '';
+    document.getElementById('credentials-client-secret').value = '';
+    document.getElementById('credentials-modal').classList.remove('hidden');
+}
+
+// Hide credentials modal
+function hideCredentialsModal() {
+    document.getElementById('credentials-modal').classList.add('hidden');
+}
+
+// Save credentials
+async function saveCredentials() {
+    const clientId = document.getElementById('credentials-client-id').value.trim();
+    const clientSecret = document.getElementById('credentials-client-secret').value.trim();
+
+    if (!clientId || !clientSecret) {
+        showToast(t('error.fieldsRequired'), 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/settings/credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: clientId,
+                client_secret: clientSecret,
+                pin: currentPinInput // PIN that was verified for protected tab
+            })
+        });
+
+        if (response.ok) {
+            showToast(t('settings.credentialsSaved'), 'info');
+            hideCredentialsModal();
+            // Logout after saving to apply new credentials
+            setTimeout(() => performLogout(), 1500);
+        } else {
+            const data = await response.json();
+            showToast(data.error || t('error.generic'), 'error');
+        }
+    } catch (e) {
+        console.error('Error saving credentials:', e);
+        showToast(t('error.generic'), 'error');
+    }
+}
+
+// Setup account event listeners
+function setupAccountEventListeners() {
+    // Account error modal buttons
+    const btnErrorLogout = document.getElementById('btn-error-logout');
+    const btnErrorSettings = document.getElementById('btn-error-settings');
+
+    if (btnErrorLogout) {
+        btnErrorLogout.addEventListener('click', performLogout);
+    }
+
+    if (btnErrorSettings) {
+        btnErrorSettings.addEventListener('click', () => {
+            hideAccountErrorModal();
+            showSettingsModal();
+            // Will require PIN to access account tab
+            switchTab('account');
+        });
+    }
+
+    // Change credentials button
+    const btnChangeCredentials = document.getElementById('btn-change-credentials');
+    if (btnChangeCredentials) {
+        btnChangeCredentials.addEventListener('click', showCredentialsModal);
+    }
+
+    // Credentials modal buttons
+    const btnCancelCredentials = document.getElementById('btn-cancel-credentials');
+    const btnSaveCredentials = document.getElementById('btn-save-credentials');
+
+    if (btnCancelCredentials) {
+        btnCancelCredentials.addEventListener('click', hideCredentialsModal);
+    }
+
+    if (btnSaveCredentials) {
+        btnSaveCredentials.addEventListener('click', saveCredentials);
+    }
+
+    // Device edit buttons
+    const btnEditHostname = document.getElementById('btn-edit-hostname');
+    const btnEditPlayerName = document.getElementById('btn-edit-player-name');
+    const btnCancelDeviceEdit = document.getElementById('btn-cancel-device-edit');
+    const btnSaveDeviceEdit = document.getElementById('btn-save-device-edit');
+
+    if (btnEditHostname) {
+        btnEditHostname.addEventListener('click', () => openDeviceEditModal('hostname'));
+    }
+
+    if (btnEditPlayerName) {
+        btnEditPlayerName.addEventListener('click', () => openDeviceEditModal('player_name'));
+    }
+
+    if (btnCancelDeviceEdit) {
+        btnCancelDeviceEdit.addEventListener('click', closeDeviceEditModal);
+    }
+
+    if (btnSaveDeviceEdit) {
+        btnSaveDeviceEdit.addEventListener('click', saveDeviceEdit);
+    }
+
+    // Close modals on outside click
+    const accountErrorModal = document.getElementById('account-error-modal');
+    const credentialsModal = document.getElementById('credentials-modal');
+    const deviceEditModal = document.getElementById('device-edit-modal');
+
+    if (accountErrorModal) {
+        accountErrorModal.addEventListener('click', (e) => {
+            if (e.target === accountErrorModal) hideAccountErrorModal();
+        });
+    }
+
+    if (credentialsModal) {
+        credentialsModal.addEventListener('click', (e) => {
+            if (e.target === credentialsModal) hideCredentialsModal();
+        });
+    }
+
+    if (deviceEditModal) {
+        deviceEditModal.addEventListener('click', (e) => {
+            if (e.target === deviceEditModal) closeDeviceEditModal();
+        });
     }
 }
 

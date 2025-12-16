@@ -215,6 +215,15 @@
                             <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
                         </svg>
                     </button>
+                    <button class="tab-btn" data-tab="account" data-protected="true">
+                        <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                        </svg>
+                        <span data-i18n="settings.account">Account</span>
+                        <svg class="tab-lock-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Tab Content -->
@@ -408,14 +417,8 @@
                         </button>
                     </div>
                     <hr class="other-divider">
-                    <!-- System buttons row: Logout, Reboot, Shutdown -->
+                    <!-- System buttons row: Reboot, Shutdown -->
                     <div class="system-buttons-row">
-                        <button id="btn-logout" class="btn-system btn-system-warning">
-                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-                            </svg>
-                            <span data-i18n="settings.logout">Log out</span>
-                        </button>
                         <button id="btn-reboot" class="btn-system btn-system-warning">
                             <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -454,6 +457,81 @@
                                 <span class="lang-name">Nederlands</span>
                             </button>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Tab 7: Account -->
+                <div id="tab-account" class="tab-panel">
+                    <!-- Account info with logout button -->
+                    <div class="account-section">
+                        <div class="account-avatar" id="account-avatar">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                        </div>
+                        <div class="account-details">
+                            <div class="account-name-row">
+                                <span class="account-name" id="account-display-name">-</span>
+                                <span class="account-product" id="account-product">-</span>
+                            </div>
+                            <span class="account-email" id="account-email">-</span>
+                        </div>
+                        <button id="btn-logout" class="btn-logout">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                            </svg>
+                            <span data-i18n="settings.logout">Log out</span>
+                        </button>
+                    </div>
+
+                    <hr class="other-divider">
+
+                    <!-- Device section -->
+                    <div class="device-section">
+                        <h4 data-i18n="settings.device">Device</h4>
+
+                        <div class="device-row">
+                            <span class="device-label" data-i18n="settings.hostname">Hostname</span>
+                            <span class="device-value" id="device-hostname">-</span>
+                            <button class="btn-edit" id="btn-edit-hostname">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="device-row">
+                            <span class="device-label" data-i18n="settings.playerName">Player Name</span>
+                            <span class="device-value" id="device-player-name">-</span>
+                            <button class="btn-edit" id="btn-edit-player-name">
+                                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="other-divider">
+
+                    <!-- API Credentials section -->
+                    <div class="credentials-section">
+                        <h4 data-i18n="settings.apiCredentials">API Credentials</h4>
+
+                        <div class="credential-row">
+                            <span class="credential-label" data-i18n="settings.clientId">Client ID</span>
+                            <span class="credential-value" id="credential-client-id">-</span>
+                        </div>
+                        <div class="credential-row">
+                            <span class="credential-label" data-i18n="settings.clientSecret">Client Secret</span>
+                            <span class="credential-value" id="credential-client-secret">-</span>
+                        </div>
+
+                        <button id="btn-change-credentials" class="btn-system btn-system-warning">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+                            </svg>
+                            <span data-i18n="settings.changeCredentials">Change credentials</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -543,6 +621,59 @@
             </div>
             <div class="modal-buttons">
                 <button id="btn-cancel-settings-pin" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Error Modal -->
+    <div id="account-error-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <div class="error-icon-large">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+            </div>
+            <h2 data-i18n="error.accountNotAuthorized">Account not authorized</h2>
+            <p data-i18n="error.accountNotAuthorizedDesc">This Spotify account does not have access to this app.</p>
+            <div class="modal-buttons">
+                <button id="btn-error-logout" class="btn-modal btn-primary" data-i18n="settings.logout">Log out</button>
+                <button id="btn-error-settings" class="btn-modal btn-cancel" data-i18n="settings.openSettings">Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credentials Modal -->
+    <div id="credentials-modal" class="modal hidden">
+        <div class="modal-content modal-medium">
+            <h2 data-i18n="settings.changeCredentials">Change credentials</h2>
+            <div class="form-group">
+                <label data-i18n="settings.clientId">Client ID</label>
+                <input type="text" id="credentials-client-id" class="form-input" placeholder="abc123...">
+            </div>
+            <div class="form-group">
+                <label data-i18n="settings.clientSecret">Client Secret</label>
+                <input type="password" id="credentials-client-secret" class="form-input" placeholder="xyz789...">
+            </div>
+            <p class="warning-text" data-i18n="settings.credentialsWarning">Wrong credentials will prevent login!</p>
+            <div class="modal-buttons">
+                <button id="btn-cancel-credentials" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-save-credentials" class="btn-modal btn-primary" data-i18n="modal.save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Edit Modal -->
+    <div id="device-edit-modal" class="modal hidden">
+        <div class="modal-content modal-medium">
+            <h2 id="device-edit-title">Edit</h2>
+            <div class="form-group">
+                <label id="device-edit-label">Value</label>
+                <input type="text" id="device-edit-input" class="form-input">
+            </div>
+            <p class="warning-text" id="device-edit-warning"></p>
+            <div class="modal-buttons">
+                <button id="btn-cancel-device-edit" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-save-device-edit" class="btn-modal btn-primary" data-i18n="modal.save">Save</button>
             </div>
         </div>
     </div>
