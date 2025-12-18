@@ -663,6 +663,9 @@ class BluetoothManager:
                 line = line.strip()
                 if line.startswith('Name:'):
                     info['name'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Alias:'):
+                    # Alias is the custom name set by user, takes precedence over Name
+                    info['alias'] = line.split(':', 1)[1].strip()
                 elif line.startswith('Connected:'):
                     info['connected'] = 'yes' in line.lower()
                 elif line.startswith('Paired:'):
@@ -671,6 +674,14 @@ class BluetoothManager:
                     info['trusted'] = 'yes' in line.lower()
                 elif line.startswith('Icon:'):
                     info['icon'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Battery Percentage:'):
+                    # Parse "Battery Percentage: 0x1e (30)" -> 30
+                    match = re.search(r'\((\d+)\)', line)
+                    if match:
+                        info['battery'] = int(match.group(1))
+        # Use alias as name if set and different from original name
+        if info.get('alias') and info.get('alias') != info.get('name'):
+            info['name'] = info['alias']
         return info
 
     def get_bluetooth_codec(self, address):
@@ -727,7 +738,8 @@ class BluetoothManager:
                 'connected': is_connected,
                 'paired': True,
                 'trusted': info.get('trusted', False),
-                'icon': info.get('icon', '')
+                'icon': info.get('icon', ''),
+                'battery': info.get('battery')
             }
 
             # Get codec for connected devices
@@ -1001,6 +1013,38 @@ class BluetoothManager:
             return True, None
 
         return False, stderr or 'Vergeten mislukt'
+
+    def rename_device(self, address, alias):
+        """Set a custom alias for a Bluetooth device"""
+        # bluetoothctl set-alias requires being in device context
+        # Use: select <address> then set-alias <name>
+        stdout, stderr, rc = self._run_bluetoothctl([
+            f'select {address}',
+            f'set-alias {alias}'
+        ], timeout=10)
+
+        if rc == 0:
+            return True, None
+
+        # Check for success message in output
+        if stdout and 'Changing' in stdout:
+            return True, None
+
+        return False, stderr or 'Hernoemen mislukt'
+
+    def set_trusted(self, address, trusted):
+        """Set the trusted state of a Bluetooth device (controls auto-connect)"""
+        cmd = 'trust' if trusted else 'untrust'
+        stdout, stderr, rc = self._run_bluetoothctl([f'{cmd} {address}'], timeout=10)
+
+        if rc == 0:
+            return True, None
+
+        # Check for success in output
+        if stdout and ('trust succeeded' in stdout.lower() or 'untrust succeeded' in stdout.lower()):
+            return True, None
+
+        return False, stderr or 'Wijzigen mislukt'
 
     def _save_last_device(self, address):
         """Save last connected device for auto-reconnect"""
@@ -2263,6 +2307,71 @@ def bluetooth_forget_endpoint():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/bluetooth/rename', methods=['POST'])
+def bluetooth_rename_endpoint():
+    """Rename a Bluetooth device (set alias)"""
+    if not bluetooth_manager:
+        return jsonify({'error': t('bt.not_available')}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data or 'alias' not in data:
+        return jsonify({'error': 'address and alias required'}), 400
+
+    address = data['address']
+    alias = data['alias'].strip()
+
+    if not alias:
+        return jsonify({'error': 'alias cannot be empty'}), 400
+
+    try:
+        success, error = bluetooth_manager.rename_device(address, alias)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': t('bt.rename_success')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': error or t('bt.rename_failed')
+            }), 400
+    except Exception as e:
+        print(f"[BT] Rename error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/bluetooth/trust', methods=['POST'])
+def bluetooth_trust_endpoint():
+    """Set Bluetooth device trusted state (controls auto-connect)"""
+    if not bluetooth_manager:
+        return jsonify({'error': t('bt.not_available')}), 503
+
+    data = request.get_json()
+    if not data or 'address' not in data or 'trusted' not in data:
+        return jsonify({'error': 'address and trusted required'}), 400
+
+    address = data['address']
+    trusted = bool(data['trusted'])
+
+    try:
+        success, error = bluetooth_manager.set_trusted(address, trusted)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'trusted': trusted
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': error or 'Failed to change trusted state'
+            }), 400
+    except Exception as e:
+        print(f"[BT] Trust error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/bluetooth/power', methods=['GET', 'POST'])
 def bluetooth_power_endpoint():
     """Get or set Bluetooth adapter power state"""
@@ -2752,6 +2861,18 @@ def set_player_name():
     except Exception as e:
         print(f"[Device Error] Failed to set player name: {e}")
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/system/restart-librespot', methods=['POST'])
+def restart_librespot():
+    """Restart librespot service"""
+    try:
+        subprocess.run(['systemctl', '--user', 'restart', 'librespot'], timeout=30)
+        print("[System] Librespot service restarted")
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"[System Error] Failed to restart librespot: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================

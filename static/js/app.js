@@ -124,7 +124,8 @@ let bluetoothState = {
     discoveredDevices: [],
     connectingDevice: null,
     pairingDevice: null,
-    pendingPinDevice: null
+    pendingPinDevice: null,
+    lastKnownCodec: {} // Track previous codec state per device address for disconnecting detection
 };
 let bluetoothPollingInterval = null;
 
@@ -601,6 +602,27 @@ function setupEventListeners() {
         refreshInterfaceBtn.addEventListener('click', () => {
             localStorage.setItem('reopenSettingsTab', 'system');
             location.reload();
+        });
+    }
+
+    // Restart librespot button
+    const restartLibrespotBtn = document.getElementById('btn-restart-librespot');
+    if (restartLibrespotBtn) {
+        restartLibrespotBtn.addEventListener('click', async () => {
+            restartLibrespotBtn.disabled = true;
+            try {
+                const response = await fetch('/api/system/restart-librespot', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    showToast(t('settings.librespotRestarted'), 'info');
+                } else {
+                    showToast(t('settings.librespotRestartFailed'), 'error');
+                }
+            } catch (e) {
+                showToast(t('settings.librespotRestartFailed'), 'error');
+            } finally {
+                restartLibrespotBtn.disabled = false;
+            }
         });
     }
 
@@ -1734,17 +1756,28 @@ async function updateCurrentTrack() {
             trackName.textContent = data.track.name;
             trackArtist.textContent = data.track.artist;
 
-            // Store current track ID and highlight in list
+            // Update progress (met validatie voor ongeldige waarden)
+            trackDuration = data.track.duration_ms || 0;
+
+            // Check if this is the same track BEFORE updating currentTrackId
+            const isSameTrack = currentTrackId === data.track.id;
+            const newProgress = data.track.progress_ms || 0;
+
+            // Only update progress from API if:
+            // 1. Track changed (need to reset even if progress is 0), OR
+            // 2. API returned valid progress (> 0)
+            // Otherwise keep locally interpolated progress (librespot bug workaround)
+            if (!isSameTrack || newProgress > 0) {
+                trackProgress = newProgress;
+                if (trackProgress < 0) trackProgress = 0;
+                if (trackDuration > 0 && trackProgress > trackDuration) trackProgress = trackDuration;
+                lastProgressUpdate = Date.now();
+            }
+
+            // Store current track ID and highlight in list (AFTER progress check)
             currentTrackId = data.track.id;
             highlightCurrentTrack();
 
-            // Update progress (met validatie voor ongeldige waarden)
-            trackDuration = data.track.duration_ms || 0;
-            trackProgress = data.track.progress_ms || 0;
-            // Extra validatie voor edge cases
-            if (trackProgress < 0) trackProgress = 0;
-            if (trackDuration > 0 && trackProgress > trackDuration) trackProgress = trackDuration;
-            lastProgressUpdate = Date.now();
             updateProgressDisplay();
         } else {
             // No track playing - show placeholders (keep elements visible)
@@ -2494,6 +2527,17 @@ async function loadBluetoothDevices() {
         bluetoothState.discoveredDevices = data.discovered || [];
         bluetoothState.scanning = data.scanning || false;
 
+        // Track codec state for disconnecting detection
+        bluetoothState.pairedDevices.forEach(device => {
+            if (device.connected && device.codec) {
+                // Device has codec - remember it
+                bluetoothState.lastKnownCodec[device.address] = true;
+            } else if (!device.connected) {
+                // Device disconnected - clean up
+                delete bluetoothState.lastKnownCodec[device.address];
+            }
+        });
+
         renderBluetoothDevices();
         updateBluetoothScanButton();
     } catch (error) {
@@ -2561,43 +2605,100 @@ function createBluetoothDeviceElement(device, isPaired) {
         </span>`;
     }
 
-    // Disconnect button for connected paired devices
-    const disconnectBtn = (isPaired && device.connected) ? `
-        <button class="btn-bt-disconnect" data-address="${device.address}">${t('bt.disconnect')}</button>
+    // Rename button next to device name (paired only)
+    const renameBtn = isPaired ? `
+        <button class="btn-bt-rename" data-address="${device.address}" title="${t('bt.rename')}">
+            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+            </svg>
+        </button>
     ` : '';
 
-    // Forget button for paired devices
-    const forgetBtn = isPaired ? `
-        <button class="btn-bt-forget" data-address="${device.address}">${t('bt.forget')}</button>
+    // Action button: Connect/Disconnect for paired, Pair for discovered
+    let actionBtn = '';
+    if (isPaired) {
+        if (device.connected) {
+            actionBtn = `<button class="btn-bt-disconnect" data-address="${device.address}">${t('bt.disconnect')}</button>`;
+        } else {
+            actionBtn = `<button class="btn-bt-connect" data-address="${device.address}">${t('bt.connect')}</button>`;
+        }
+    } else {
+        actionBtn = `<button class="btn-bt-pair" data-address="${device.address}">${t('bt.pair')}</button>`;
+    }
+
+    // Settings row only for paired devices (toggle + forget)
+    const settingsRow = isPaired ? `
+        <div class="bt-device-settings">
+            <label class="toggle-switch">
+                <input type="checkbox" class="bt-toggle-input" data-address="${device.address}" ${device.trusted ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="bt-toggle-label">${t('bt.autoConnect')}</span>
+            <button class="btn-bt-forget" data-address="${device.address}">${t('bt.forget')}</button>
+        </div>
     ` : '';
 
     div.innerHTML = `
-        <span class="device-icon">${icon}</span>
-        <div class="device-info">
-            <div class="device-name">${escapeHtml(device.name || t('bt.unknownDevice'))}</div>
-            <div class="device-status">${statusText}</div>
+        <div class="bt-device-main">
+            <span class="device-icon">${icon}</span>
+            <div class="device-info">
+                <div class="device-name-row">
+                    <span class="device-name">${escapeHtml(device.name || t('bt.unknownDevice'))}</span>
+                    ${renameBtn}
+                </div>
+                <div class="device-status">${statusText}</div>
+            </div>
+            ${spinner}
+            ${actionBtn}
         </div>
-        ${spinner}
-        ${disconnectBtn}
-        ${forgetBtn}
+        ${settingsRow}
     `;
 
-    // Click handler for device body
-    div.onclick = (e) => {
-        // Ignore clicks on disconnect button
-        if (e.target.closest('.btn-bt-disconnect')) {
-            e.stopPropagation();
+    // Button event handlers (no click-anywhere behavior)
+    const connectBtn = div.querySelector('.btn-bt-connect');
+    if (connectBtn) {
+        connectBtn.addEventListener('click', () => {
+            connectBluetoothDevice(device.address);
+        });
+    }
+
+    const disconnectBtn = div.querySelector('.btn-bt-disconnect');
+    if (disconnectBtn) {
+        disconnectBtn.addEventListener('click', () => {
             disconnectBluetoothDevice(device.address);
-            return;
+        });
+    }
+
+    const pairBtn = div.querySelector('.btn-bt-pair');
+    if (pairBtn) {
+        pairBtn.addEventListener('click', () => {
+            pairBluetoothDevice(device.address);
+        });
+    }
+
+    // Settings row handlers (for paired devices)
+    if (isPaired) {
+        const toggleInput = div.querySelector('.bt-toggle-input');
+        if (toggleInput) {
+            toggleInput.addEventListener('change', (e) => {
+                toggleBluetoothAutoConnect(device.address, e.target.checked);
+            });
         }
-        // Ignore clicks on forget button
-        if (e.target.closest('.btn-bt-forget')) {
-            e.stopPropagation();
-            showForgetModal(device);
-            return;
+
+        const renameBtnEl = div.querySelector('.btn-bt-rename');
+        if (renameBtnEl) {
+            renameBtnEl.addEventListener('click', () => {
+                renameBluetoothDevice(device.address, device.name);
+            });
         }
-        handleBluetoothDeviceClick(device, isPaired);
-    };
+
+        const forgetBtn = div.querySelector('.btn-bt-forget');
+        if (forgetBtn) {
+            forgetBtn.addEventListener('click', () => {
+                showForgetModal(device);
+            });
+        }
+    }
 
     return div;
 }
@@ -2614,11 +2715,50 @@ function getBluetoothDeviceIcon(device) {
     return '<svg class="icon" viewBox="0 0 24 24" fill="currentColor"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg>';
 }
 
+function getBatteryIcon(percentage) {
+    // Determine icon and color class based on battery level
+    let colorClass = '';
+    let fillLevel;
+
+    if (percentage >= 80) {
+        fillLevel = 'full';
+    } else if (percentage >= 50) {
+        fillLevel = 'medium';
+    } else if (percentage >= 20) {
+        fillLevel = 'low';
+        colorClass = 'battery-low';
+    } else {
+        fillLevel = 'critical';
+        colorClass = 'battery-critical';
+    }
+
+    // Battery icon with fill level indicator
+    // Full: all 4 bars, Medium: 3 bars, Low: 2 bars, Critical: 1 bar
+    const bars = {
+        full: '<rect x="4" y="6" width="14" height="12" rx="1"/>',
+        medium: '<rect x="4" y="6" width="14" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5.5" y="7.5" width="9" height="9" rx="0.5"/>',
+        low: '<rect x="4" y="6" width="14" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5.5" y="7.5" width="6" height="9" rx="0.5"/>',
+        critical: '<rect x="4" y="6" width="14" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="5.5" y="7.5" width="3" height="9" rx="0.5"/>'
+    };
+
+    return `<svg class="icon-battery ${colorClass}" viewBox="0 0 24 24" fill="currentColor">
+        ${bars[fillLevel]}
+        <rect x="18" y="9" width="2" height="6" rx="0.5"/>
+    </svg>`;
+}
+
 function getBluetoothDeviceStatus(device, isPaired) {
     if (device.address === bluetoothState.connectingDevice) return t('bt.connecting');
     if (device.address === bluetoothState.pairingDevice) return t('bt.pairing');
     if (device.connected) {
+        // Detect disconnecting: was connected with codec, now codec is gone but BlueZ still says connected
+        if (bluetoothState.lastKnownCodec[device.address] && !device.codec) {
+            return t('bt.disconnecting');
+        }
         let status = t('bt.connected');
+        if (device.battery != null) {
+            status += ` · ${getBatteryIcon(device.battery)} ${device.battery}%`;
+        }
         if (device.codec) {
             status += ` · ${device.codec}`;
         }
@@ -2832,6 +2972,81 @@ async function forgetBluetoothDevice(address) {
     loadBluetoothDevices();
 }
 
+function renameBluetoothDevice(address, currentName) {
+    showRenameModal(address, currentName);
+}
+
+function showRenameModal(address, currentName) {
+    const modal = document.getElementById('bt-rename-modal');
+    const input = document.getElementById('bt-rename-input');
+
+    input.value = currentName || '';
+    modal.dataset.address = address;
+    modal.classList.remove('hidden');
+    input.focus();
+    input.select();
+}
+
+function hideRenameModal() {
+    const modal = document.getElementById('bt-rename-modal');
+    modal.classList.add('hidden');
+    delete modal.dataset.address;
+}
+
+async function confirmRename() {
+    const modal = document.getElementById('bt-rename-modal');
+    const input = document.getElementById('bt-rename-input');
+    const address = modal.dataset.address;
+    const newName = input.value.trim();
+
+    hideRenameModal();
+
+    if (!newName || !address) return;
+
+    try {
+        const response = await fetch('/api/bluetooth/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address, alias: newName })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            showToast(t('bt.renamed'), 'info');
+        } else {
+            showToast(data.error || t('bt.renameFailed'), 'error');
+        }
+    } catch (error) {
+        console.error('Error renaming Bluetooth device:', error);
+        showToast(t('bt.renameError'), 'error');
+    }
+
+    loadBluetoothDevices();
+}
+
+async function toggleBluetoothAutoConnect(address, trusted) {
+    try {
+        const response = await fetch('/api/bluetooth/trust', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address, trusted })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            showToast(data.error || 'Failed to change auto-connect', 'error');
+            // Revert checkbox state by reloading
+            loadBluetoothDevices();
+        }
+    } catch (error) {
+        console.error('Error toggling auto-connect:', error);
+        showToast('Error changing auto-connect', 'error');
+        loadBluetoothDevices();
+    }
+}
+
 // PIN Modal
 function showPinModal(address) {
     const modal = document.getElementById('bt-pin-modal');
@@ -2934,9 +3149,24 @@ function setupBluetoothEventListeners() {
     if (cancelForgetBtn) cancelForgetBtn.addEventListener('click', hideForgetModal);
     if (confirmForgetBtn) confirmForgetBtn.addEventListener('click', confirmForget);
 
+    // Rename modal buttons
+    const cancelRenameBtn = document.getElementById('btn-cancel-rename');
+    const confirmRenameBtn = document.getElementById('btn-confirm-rename');
+    const renameInput = document.getElementById('bt-rename-input');
+
+    if (cancelRenameBtn) cancelRenameBtn.addEventListener('click', hideRenameModal);
+    if (confirmRenameBtn) confirmRenameBtn.addEventListener('click', confirmRename);
+    if (renameInput) {
+        renameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') confirmRename();
+            if (e.key === 'Escape') hideRenameModal();
+        });
+    }
+
     // Close modals on outside click
     const pinModal = document.getElementById('bt-pin-modal');
     const forgetModal = document.getElementById('bt-forget-modal');
+    const renameModal = document.getElementById('bt-rename-modal');
 
     if (pinModal) {
         pinModal.addEventListener('click', (e) => {
@@ -2946,6 +3176,11 @@ function setupBluetoothEventListeners() {
     if (forgetModal) {
         forgetModal.addEventListener('click', (e) => {
             if (e.target === forgetModal) hideForgetModal();
+        });
+    }
+    if (renameModal) {
+        renameModal.addEventListener('click', (e) => {
+            if (e.target === renameModal) hideRenameModal();
         });
     }
 

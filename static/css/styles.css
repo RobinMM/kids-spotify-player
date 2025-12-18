@@ -1861,9 +1861,29 @@ body.pin-disabled .tab-lock-icon {
     letter-spacing: 0.5px;
 }
 
-/* Bluetooth Device Items */
+/* Bluetooth Device Items - Two-row layout */
 .bt-device {
     position: relative;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.bt-device-settings {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 36px;
+    padding-top: 12px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.bt-device-settings .toggle-switch {
+    flex-shrink: 0;
+}
+
+.bt-device-settings .btn-bt-forget {
+    margin-left: auto;
 }
 
 .bt-device.discovered {
@@ -1878,9 +1898,25 @@ body.pin-disabled .tab-lock-icon {
 }
 
 .bt-device .device-status {
-    font-size: 14px;
+    font-size: 16px;
     color: var(--text-secondary);
     margin-top: 2px;
+}
+
+/* Battery Icon */
+.icon-battery {
+    width: 18px;
+    height: 18px;
+    vertical-align: -3px;
+    margin-right: 2px;
+}
+
+.icon-battery.battery-low {
+    color: var(--warning-color, #f59e0b);
+}
+
+.icon-battery.battery-critical {
+    color: var(--danger-color, #ef4444);
 }
 
 /* Bluetooth Disconnect Button */
@@ -1927,6 +1963,108 @@ body.pin-disabled .tab-lock-icon {
 
 .btn-bt-forget:active {
     background: rgba(239, 68, 68, 0.35);
+}
+
+/* Bluetooth Rename Button */
+.btn-bt-rename {
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    border-radius: 8px;
+    padding: 4px 8px;
+    min-width: 40px;
+    min-height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: -4px 0;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.btn-bt-rename:hover {
+    background: rgba(128, 128, 128, 0.15);
+    color: var(--text-primary);
+}
+
+.btn-bt-rename:active {
+    background: rgba(128, 128, 128, 0.25);
+}
+
+.btn-bt-rename .icon {
+    width: 24px;
+    height: 24px;
+}
+
+/* Bluetooth Device Two-Row Layout */
+.bt-device-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.device-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.bt-toggle-label {
+    font-size: 16px;
+    color: var(--text-secondary);
+    user-select: none;
+    flex: 1;
+}
+
+.bt-toggle-input {
+    display: none;
+}
+
+/* Connect Button */
+.btn-bt-connect {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: auto;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.btn-bt-connect:hover {
+    background: rgba(74, 222, 128, 0.25);
+}
+
+.btn-bt-connect:active {
+    transform: scale(0.95);
+}
+
+/* Pair Button */
+.btn-bt-pair {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: auto;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn-bt-pair:hover {
+    opacity: 0.9;
+}
+
+.btn-bt-pair:active {
+    transform: scale(0.95);
 }
 
 /* PIN Modal */

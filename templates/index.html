@@ -415,6 +415,12 @@
                             </svg>
                             <span data-i18n="settings.update">Update</span>
                         </button>
+                        <button id="btn-restart-librespot" class="btn-system btn-system-warning">
+                            <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"/>
+                            </svg>
+                            <span data-i18n="settings.restartLibrespot">Restart Player</span>
+                        </button>
                     </div>
                     <hr class="other-divider">
                     <!-- System buttons row: Reboot, Shutdown -->
@@ -584,6 +590,18 @@
             <div class="modal-buttons">
                 <button id="btn-cancel-forget" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
                 <button id="btn-confirm-forget" class="btn-modal btn-danger" data-i18n="modal.forgetConfirm">Forget</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bluetooth Rename Modal -->
+    <div id="bt-rename-modal" class="modal hidden">
+        <div class="modal-content modal-small">
+            <h2 data-i18n="bt.rename">Rename</h2>
+            <input type="text" id="bt-rename-input" class="form-input" placeholder="">
+            <div class="modal-buttons">
+                <button id="btn-cancel-rename" class="btn-modal btn-cancel" data-i18n="modal.cancel">Cancel</button>
+                <button id="btn-confirm-rename" class="btn-modal btn-primary" data-i18n="modal.save">Save</button>
             </div>
         </div>
     </div>
